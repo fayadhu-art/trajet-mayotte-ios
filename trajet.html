@@ -1,0 +1,1400 @@
+<title>Trajet Maison–Aéroport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout : colonne unique façon carnet de bord routier, la ligne du trajet descend comme une route balisée */
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --ink:#13242B; --muted:#5B6F73; --line:#D5DEDC;
+  --lagon:#0B7A75; --lagon-soft:#DCEFEC; --ambre:#C77A0A; --ambre-soft:#FBEED7; --rouge:#B23A2E;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1719; --surface:#152225; --ink:#E6EEEC; --muted:#93A6A8; --line:#26383B;
+  --lagon:#3FB8AE; --lagon-soft:#173A38; --ambre:#E8A23A; --ambre-soft:#3A2C14; --rouge:#E07366; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1719; --surface:#152225; --ink:#E6EEEC; --muted:#93A6A8; --line:#26383B;
+  --lagon:#3FB8AE; --lagon-soft:#173A38; --ambre:#E8A23A; --ambre-soft:#3A2C14; --rouge:#E07366; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
+.wrap{max-width:540px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
+h1,h2,.num{font-family:var(--f-display);font-variant-numeric:tabular-nums}
+h1{font-size:2rem;font-weight:700;letter-spacing:.01em;margin:0;text-wrap:balance;line-height:1}
+h2{font-size:1.15rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin:0;color:var(--muted)}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.sub{color:var(--muted);font-size:.9rem;margin:4px 0 0}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{flex:1;border:0;background:none;color:var(--muted);font:600 1rem var(--f-display);letter-spacing:.04em;text-transform:uppercase;padding:8px 16px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+/* Planificateur */
+.plan{display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:end}
+.plan .big{font-size:3.4rem;font-weight:700;line-height:.9;color:var(--lagon)}
+.plan label{font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.plan input{font:600 1.3rem var(--f-display);padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:7.5rem}
+.plan .why{grid-column:1/-1;font-size:.88rem;color:var(--muted);margin:4px 0 0}
+.svc{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:end;margin-top:12px;padding-top:14px;border-top:1px solid var(--line)}
+.svc label.on span{color:var(--lagon);font-weight:700}
+.fix{flex-direction:row!important;align-items:center;gap:8px!important;font-size:.95rem!important;color:var(--ink)!important;cursor:pointer;padding-bottom:8px}
+.fix input{width:20px!important;height:20px;accent-color:var(--lagon);padding:0!important}
+/* Route */
+.route{list-style:none;margin:0;padding:0;position:relative}
+.route li{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:start;padding-bottom:18px;position:relative}
+.route li:last-child{padding-bottom:0}
+.route li::before{content:"";position:absolute;left:13px;top:22px;bottom:-2px;width:2px;background:repeating-linear-gradient(var(--line) 0 6px,transparent 6px 11px)}
+.route li:last-child::before{display:none}
+.route li.done::before{background:var(--lagon)}
+.dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;font:700 .8rem var(--f-display);color:var(--muted);position:relative;z-index:1}
+.done .dot{background:var(--lagon);border-color:var(--lagon);color:var(--surface)}
+.cur .dot{border-color:var(--lagon);color:var(--lagon);box-shadow:0 0 0 5px var(--lagon-soft)}
+.route .name{font-weight:700;padding-top:3px;min-width:0}
+.route .hint{display:block;font-weight:400;font-size:.85rem;color:var(--muted)}
+.route .t{font:600 1.1rem var(--f-display);font-variant-numeric:tabular-nums;color:var(--muted);padding-top:3px;text-align:right}
+.done .t{color:var(--ink)}
+.route .t{display:flex;align-items:flex-start;gap:4px}
+.route .t small{display:block;font-size:.8rem;color:var(--muted)}
+.edit{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:.95rem;line-height:1;flex:none}
+.edit:focus-visible{outline:3px solid var(--ambre);outline-offset:2px}
+.btn.pick[aria-checked="true"]{background:var(--lagon-soft);color:var(--lagon);border:2px solid var(--lagon);padding:9px}
+.btn.pick[aria-checked="true"]::before{content:"✓ "}
+.mlab{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+.mlab input{font:600 1.6rem var(--f-display);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:9rem}
+.chrono{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;gap:8px;flex-wrap:wrap}
+.chrono .num{font-size:3rem;font-weight:700;line-height:1}
+.chrono .vs{font-size:.9rem;color:var(--muted)}
+.btn{display:block;width:100%;border:0;border-radius:10px;padding:16px;font:700 1.25rem var(--f-display);letter-spacing:.05em;text-transform:uppercase;cursor:pointer;background:var(--lagon);color:var(--surface)}
+.btn.ghost{background:none;color:var(--muted);border:1px solid var(--line);font-size:1rem;padding:10px}
+.btn:focus-visible,.seg button:focus-visible,.chip:focus-visible,input:focus-visible,.x:focus-visible{outline:3px solid var(--ambre);outline-offset:2px}
+.row{display:flex;gap:10px;margin-top:10px}
+.row>*{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:7px 12px;font:400 .9rem var(--f-body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ambre-soft);border-color:var(--ambre);color:var(--ink);font-weight:700}
+textarea{width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);color:var(--ink);min-height:56px}
+/* Stats */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.kpi{display:flex;flex-direction:column;gap:2px}
+.kpi .num{font-size:1.9rem;font-weight:700;line-height:1}
+.kpi small{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+.bars{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+.bar{display:grid;grid-template-columns:minmax(0,9.5rem) 1fr 3.2rem;gap:10px;align-items:center;font-size:.88rem}
+.bar .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.fill{height:100%;background:var(--lagon);border-radius:5px}
+.bar.slow .fill{background:var(--ambre)}
+.bar .v{text-align:right;font:600 1rem var(--f-display);font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);font-size:.92rem;margin:8px 0 0}
+/* Historique */
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist li{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.hist li:first-child{border-top:0}
+.hist .d{font-size:.92rem;min-width:0}
+.hist .d small{display:block;color:var(--muted);font-size:.8rem}
+.hist .dur{font:700 1.3rem var(--f-display);font-variant-numeric:tabular-nums}
+.btn.jam{background:var(--ambre);color:var(--surface);margin-top:10px}
+.btn.jam.on{background:var(--surface);color:var(--ambre);border:2px solid var(--ambre)}
+.jams{margin-top:16px;padding:12px 14px;border-radius:10px;background:var(--ambre-soft);display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.jams b{font-family:var(--f-display);font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase}
+.jams .j{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.jams .j span:last-child{font:600 1.05rem var(--f-display)}
+.jams.stops{background:var(--lagon-soft)}
+.btn.stopbtn{background:var(--surface);color:var(--lagon);border:2px solid var(--lagon);margin-top:10px}
+.stopnow{margin:0 0 12px;padding:12px 14px;border-radius:10px;background:var(--lagon-soft);font-size:.95rem;line-height:1.45}
+.tag.stopt{background:var(--lagon-soft)}
+.tag.jamt{background:var(--ambre-soft)}
+.vac{display:inline-block;margin:8px 0 0;font:700 .75rem var(--f-body);letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--lagon-soft);color:var(--lagon)}
+.refmsg{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--lagon-soft);font-size:.92rem;display:flex;gap:10px;align-items:center}
+.refmsg.err{background:var(--ambre-soft)}
+.spin{width:14px;height:14px;flex:none;border-radius:50%;border:2px solid var(--lagon);border-right-color:transparent;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:12px 14px;cursor:pointer;font:inherit}
+.opt[aria-checked="true"]{border:2px solid var(--lagon);background:var(--lagon-soft);padding:11px 13px}
+.opt:focus-visible{outline:3px solid var(--ambre);outline-offset:2px}
+.otop{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.onom{font-weight:700;min-width:0}
+.omin{font-size:1.5rem;font-weight:700;color:var(--lagon);white-space:nowrap}
+.ometa{font-size:.86rem;color:var(--muted)}
+.oexp{font-size:.9rem;line-height:1.45;padding:8px 10px;margin-top:4px;border-radius:8px;background:var(--surface)}
+.opt[aria-checked="true"] .oexp{background:var(--surface)}
+.oet{display:flex;flex-direction:column;margin-top:6px;font-size:.88rem}
+.oet>span{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.oet>span>span:last-child{white-space:nowrap}
+.toast{position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:20;max-width:520px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast b{display:block}
+.toast button{margin-left:auto;border:0;background:none;color:inherit;font-size:1.1rem;cursor:pointer;padding:0 4px}
+.sigs{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.sigs li{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:10px;background:var(--ambre-soft)}
+.sigs li.mine{outline:1px dashed var(--ambre)}
+.sigs .st{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.sigs .st b{min-width:0}
+.sigs .st small,.sigs .sm{color:var(--muted);font-size:.82rem}
+.sigs .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.sigs .acts button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:.85rem;cursor:pointer}
+.sigform{margin-top:14px}
+.sigform summary{list-style:none;text-align:center}
+.sigform summary::-webkit-details-marker{display:none}
+.sigform[open] summary{background:var(--surface);color:var(--lagon);border:2px solid var(--lagon);margin-bottom:12px}
+.lieux{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px}
+.lieux label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+.lieux input{font:inherit;font-size:1rem;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+.ref{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.ref .tot{display:flex;gap:18px;flex-wrap:wrap}
+.ref .tot div{display:flex;flex-direction:column}
+.ref .tot .num{font-size:1.9rem;font-weight:700;line-height:1;color:var(--lagon)}
+.ref .tot small{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+.ref table{border-collapse:collapse;font-size:.9rem;width:100%}
+.ref td{padding:5px 0;border-top:1px solid var(--line)}
+.ref td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
+.ref a{color:var(--lagon)}
+.advice{grid-column:1/-1;margin:6px 0 0;padding:12px 14px;border-radius:10px;background:var(--lagon-soft);font-size:.95rem;line-height:1.5}
+.vhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.lvl{font:700 .75rem var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--lagon-soft);color:var(--lagon)}
+.lvl.vigilance{background:var(--ambre-soft);color:var(--ambre)}
+.lvl.perturbe{background:var(--rouge);color:var(--surface)}
+.lvl.none{background:var(--bg);color:var(--muted)}
+.vsum{margin:10px 0 0;font-weight:700}
+.vlist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:.92rem}
+.vlist li{padding-left:12px;border-left:3px solid var(--line)}
+.vlist small{display:block;color:var(--muted);margin-top:2px}
+.vlist a{color:var(--lagon)}
+.tag.barge{background:var(--lagon-soft)}
+.tag{display:inline-block;font-size:.72rem;background:var(--ambre-soft);color:var(--ink);padding:1px 6px;border-radius:4px;margin:2px 4px 0 0}
+.x{border:0;background:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;border-radius:6px}
+.confirm{grid-column:1/-1;display:flex;gap:8px;align-items:center;font-size:.85rem;color:var(--rouge)}
+.confirm button{border:1px solid currentColor;background:none;color:inherit;border-radius:6px;padding:3px 10px;cursor:pointer;font:inherit}
+details summary{cursor:pointer;color:var(--muted);font-size:.92rem}
+.set{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.set label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+.set input{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.status{font-size:.8rem;color:var(--muted);text-align:center}
+@media (max-width:420px){.plan .big{font-size:2.8rem}.kpis .num{font-size:1.6rem}.bar{grid-template-columns:minmax(0,7rem) 1fr 2.8rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+dialog.welcome{border:0;border-radius:16px;padding:22px 18px;width:min(460px,calc(100vw - 32px));max-width:none;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog.welcome::backdrop{background:rgba(10,20,22,.55)}
+dialog.welcome h2{color:var(--ink);font-size:1.6rem;text-transform:none;letter-spacing:0}
+dialog.welcome .btn.ghost{margin-top:14px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Trajet Maison–Aéroport</h1>
+      <p class="vac" id="vacBadge" hidden></p>
+      <p class="sub" id="dirSub">Sortie du travail → barge → retour à la maison</p>
+    </div>
+    <div class="seg" role="group" aria-label="Sens du trajet">
+      <button id="dAller" aria-pressed="false">Maison → Travail</button>
+      <button id="dRetour" aria-pressed="true">Travail → Maison</button>
+    </div>
+  </header>
+
+  <section class="panel" id="svcPanel" aria-labelledby="hSvc">
+    <h2 id="hSvc">Mes horaires de service</h2>
+    <div class="plan" style="margin-top:10px">
+      <div class="svc" style="margin-top:0;padding-top:0;border-top:0">
+        <label for="svcA" id="lA"><span>Début de service</span><input type="time" id="svcA"></label>
+        <label for="svcR" id="lR"><span>Fin de service</span><input type="time" id="svcR"></label>
+        <label for="fixed" class="fix"><input type="checkbox" id="fixed"> Horaires fixes</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="lieuxPanel" aria-labelledby="hLieux">
+    <h2 id="hLieux">Mon trajet de référence</h2>
+    <p class="empty" id="refIntro" style="margin:6px 0 0">Indique où tu pars et où tu arrives : les itinéraires de l'aller et du retour se calculent quand tu valides (touche Entrée ou sortie du champ). Tes lieux ne sont visibles que par toi.</p>
+    <div class="lieux">
+      <label for="lieuDep">Départ (maison)<input type="text" id="lieuDep" placeholder="ex. Bandraboua" autocomplete="off" enterkeyhint="next"></label>
+      <label for="lieuArr">Arrivée (travail)<input type="text" id="lieuArr" placeholder="ex. Aéroport de Pamandzi" autocomplete="off" enterkeyhint="go"></label>
+    </div>
+    <p class="refmsg" id="refMsg" role="status" hidden></p>
+    <div id="refOut" aria-live="polite"></div>
+    <button class="btn ghost" id="refBtn" type="button" style="margin-top:12px" hidden>Recalculer</button>
+  </section>
+
+  <section class="panel" aria-labelledby="hPlan">
+    <h2 id="hPlan">Heure de départ conseillée</h2>
+    <div class="plan" style="margin-top:10px">
+      <div class="big num" id="leaveAt">--:--</div>
+      <span></span>
+      <p class="why" id="why"></p>
+      <p class="advice" id="advice" hidden></p>
+      <button class="btn ghost" id="adviceBtn" type="button" style="grid-column:1/-1">Demander un conseil pour ce trajet</button>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="alert" hidden></div>
+  <dialog class="welcome" id="welcome" aria-labelledby="wTitle">
+    <h2 id="wTitle">Ton trajet</h2>
+    <p class="empty" style="margin:8px 0 0">Indique d'où tu pars et où tu travailles. Les itinéraires de l'aller et du retour se calculent dès que les deux lieux sont remplis.</p>
+    <div class="lieux">
+      <label for="wDep">Départ (maison)<input type="text" id="wDep" placeholder="ex. Bandraboua" autocomplete="off" enterkeyhint="next"></label>
+      <label for="wArr">Arrivée (travail)<input type="text" id="wArr" placeholder="ex. Aéroport de Pamandzi" autocomplete="off" enterkeyhint="go"></label>
+    </div>
+    <button class="btn ghost" id="wLater" type="button">Plus tard</button>
+  </dialog>
+
+  <section class="panel veille" id="veille"></section>
+
+  <section class="panel" id="signal" aria-labelledby="hSig">
+    <div class="vhead"><h2 id="hSig">Signalements en direct</h2><span class="lvl none" id="sigCount">aucun en cours</span></div>
+    <ul class="sigs" id="sigList"></ul>
+    <details id="sigForm" class="sigform">
+      <summary class="btn" id="sigOpen">Signaler un évènement</summary>
+      <div class="chips" id="sigTypes" role="radiogroup" aria-label="Type d'évènement"></div>
+      <div class="lieux">
+        <label for="sigLieu">Où ?<input type="text" id="sigLieu" list="placesList" placeholder="ex. Kawéni, rond-point SFR" autocomplete="off"></label>
+        <label for="sigDet">Précision (facultatif)<input type="text" id="sigDet" maxlength="140" placeholder="ex. file jusqu'à Majicavo" autocomplete="off"></label>
+      </div>
+      <datalist id="placesList"></datalist>
+      <button class="btn" id="sigSend" type="button" style="margin-top:12px">Envoyer le signalement</button>
+      <p class="empty" id="sigHelp" style="margin:8px 0 0">Visible tout de suite par tous les utilisateurs de l'appli, pendant 2 heures.</p>
+    </details>
+  </section>
+
+
+  <section class="panel" aria-labelledby="hRoute">
+    <div class="chrono">
+      <h2 id="hRoute">Trajet en cours</h2>
+      <div><span class="num" id="clock">0:00</span> <span class="vs" id="vs"></span></div>
+    </div>
+    <ol class="route" id="route"></ol>
+    <div class="jams" id="jams" hidden></div>
+    <div class="jams stops" id="stops" hidden></div>
+    <div style="margin-top:18px" id="actions"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="hStats">
+    <h2 id="hStats">Mes temps</h2>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><span class="num" id="kAvg">–</span><small>Moyenne</small></div>
+      <div class="kpi"><span class="num" id="kP80">–</span><small>8 fois sur 10</small></div>
+      <div class="kpi"><span class="num" id="kN">0</span><small>Trajets</small></div>
+    </div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="hHist">
+    <h2 id="hHist">Historique</h2>
+    <ul class="hist" id="hist" style="margin-top:8px"></ul>
+  </section>
+
+  <section class="panel" aria-labelledby="hSet">
+    <h2 id="hSet">Réglages</h2>
+    <div class="set">
+      <label for="sMargin">Marge avant le début de service (minutes)<input type="number" id="sMargin" min="0" max="120" step="5" inputmode="numeric"></label>
+      <label for="sShare" class="fix"><input type="checkbox" id="sShare"> Partager mes embouteillages avec les autres utilisateurs</label>
+      <button class="btn ghost" id="exportBtn" type="button">Exporter mes trajets (texte CSV à copier)</button>
+      <textarea id="exportOut" hidden readonly aria-label="Trajets au format CSV"></textarea>
+    </div>
+  </section>
+
+  <p class="status" id="status">Connexion au carnet…</p>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const DEF = {
+  stepsA: ["Départ maison", "Arrivée à Mamoudzou", "Départ de la barge Mamoudzou", "Arrivée barge Dzaoudzi", "Montée dans le taxi", "Descente du taxi", "Arrivée au travail"],
+  stepsR: ["Fin de service, sortie du travail", "Montée dans le taxi", "Descente du taxi", "Départ de la barge Dzaoudzi", "Arrivée barge Mamoudzou", "Départ de Mamoudzou", "Arrivée maison"],
+  estA: 75, estR: 75, margin: 10, tA: "", tR: "", fixed: false, day: null
+};
+const BARGES = ["Amphidrome", "Barge normale"];
+const MODES = ["Taxi", "Voiture", "Bus"];
+const TAGS = ["Attente taxi", "Attente bus", "Attente barge", "Route bloquée", "Pluie", "Accident"];
+const HINTS = {"Arrivée à Mamoudzou":"Au quai de la barge", "Départ de Mamoudzou":"En taxi, voiture ou bus"};
+const HINTS_DIR = {aller: {"Montée dans le taxi":"Au quai de Dzaoudzi, vers le travail", "Descente du taxi":"Devant le travail"},
+  retour: {"Montée dans le taxi":"Vers la barge de Dzaoudzi", "Descente du taxi":"Au quai de la barge Dzaoudzi"}};
+const isBarge = n => /embarquement barge|départ de la barge/i.test(n);
+// Attente au quai : de l'arrivée au quai (Mamoudzou, ou descente du taxi à Dzaoudzi) jusqu'au départ de la barge
+const quaiWait = t => { const i = (t.steps||[]).findIndex(isBarge); return i > 0 && /arrivée à mamoudzou|descente du taxi/i.test(t.steps[i-1]) && t.stamps[i] && t.stamps[i-1] ? t.stamps[i]-t.stamps[i-1] : null; };
+const waitTxt = s => `Attente au quai depuis ${hhmm(new Date(s))} · ${fmtClock(Date.now()-s)}`;
+// Attente du taxi : de l'étape précédente (arrivée barge Dzaoudzi à l'aller, sortie du travail au retour) jusqu'à la montée dans le taxi
+const isTaxiUp = n => /^montée dans le taxi/i.test(n);
+// À Dzaoudzi, chaque barge a son quai ; à Mamoudzou, les deux partent et arrivent au même quai
+const QUAI = {"Amphidrome": "quai Ballou", "Barge normale": "quai Issoufali"};
+const QUAIS_DZA = "Quai Ballou (amphidrome) ou quai Issoufali (barge normale)";
+const taxiWait = t => { const i = (t.steps||[]).findIndex(isTaxiUp); return i > 0 && t.stamps[i] && t.stamps[i-1] ? t.stamps[i]-t.stamps[i-1] : null; };
+const taxiTxt = s => `Attente du taxi depuis ${hhmm(new Date(s))} · ${fmtClock(Date.now()-s)}`;
+let manualIdx = null, manualPick = null;
+// Évènements rencontrés pendant le trajet : notés dans le trajet lui-même, avec l'heure et le tronçon
+const EV_TYPES = ["Accident", "Route bloquée / barrage", "Travaux", "Contrôle routier", "Barge à l'arrêt ou retardée", "Longue attente de taxi", "Route inondée / éboulement", "Pluie forte", "Panne", "Autre"];
+let evPick = false, lateStart = false;
+const modeMem = {}; // choix du moyen gardé en mémoire, même si le stockage du navigateur est indisponible
+
+let S = {...DEF}, trips = [], dir = "aller", db = null, uid = null, tripsCol = null, setRef = null;
+let active = null, tags = new Set(), note = "", pendingDel = null, tick = null, wake = null;
+
+const ls = {get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+            set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+const noKaw = a => a.filter(n => !/^passage kaw/i.test(n) && !/^montée (taxi|bus) vers la barge$/i.test(n));
+// Étapes fixes du trajet (les anciens réglages enregistrés ne les remplacent plus)
+const isPT = x => /pamandzi|dzaoudzi|labattoir|aeroport|petite terre/.test(nrm(x));
+// Sans lieux saisis, on garde le trajet avec barge ; sinon la barge n'apparaît que si un seul des deux lieux est sur Petite-Terre
+const tripBarge = () => !lieux?.depart || !lieux?.arrivee || isPT(lieux.depart) !== isPT(lieux.arrivee);
+const STEPS_ROUTE = {aller: ["Départ maison", "Arrivée au travail"], retour: ["Fin de service, sortie du travail", "Arrivée maison"]};
+function routeSteps(d){
+  const o = chosenOpt(d), S0 = STEPS_ROUTE[d], wp = [];
+  ((o?.etapes) || []).slice(0, -1).forEach(e => { const m = String(e.label || "").split(/→|->/); if (m.length < 2) return;
+    const n = m[m.length-1].replace(/\(.*?\)/g, "").trim(); if (n && n.length <= 40 && !wp.includes(n)) wp.push(n); });
+  return [S0[0], ...wp.slice(0, 5).map(n => "Passage à " + n), S0[1]];
+}
+// Étapes fixes du trajet, les mêmes pour tous les lieux
+const steps = d => d === "aller" ? DEF.stepsA : DEF.stepsR;
+// Version installée sur le téléphone, sans Claude : tout reste sur l'appareil, itinéraires saisis à la main
+const STANDALONE = !!window.__standalone;
+const isHome = n => /vers le nord|départ de mamoudzou/i.test(n);
+const isRoute = n => isHome(n);
+const ROUTES = ["Par le nord", "Par le sud"];
+let routeSel = null;
+const dayKey = () => isoDay(Date.now() - 3*3600000);
+const svc = d => { const k = d === "aller" ? "tA" : "tR";
+  if (S.fixed) return S[k] || ""; return S.day && S.day.date === dayKey() ? (S.day[k] || "") : ""; };
+const lab = t => t === "00:00" ? "minuit" : t;
+const atTime = (base, t) => { const [h,m]=(t||"0:0").split(":").map(Number); const d=new Date(base); d.setHours(h,m,0,0); return d; };
+const gap = ms => { const m=Math.round(Math.abs(ms)/60000); return m===0 ? "pile à l'heure" : (ms<0 ? `${m} min d'avance` : `${m} min de retard`); };
+const fmtDur = ms => { const m = Math.round(ms/60000); return m >= 60 ? `${Math.floor(m/60)}h${String(m%60).padStart(2,"0")}` : `${m} min`; };
+const fmtClock = ms => { const s = Math.floor(ms/1000); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
+const hhmm = d => d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+const curSteps = () => active && active.dir === dir ? active.steps : steps(dir);
+const tripsFor = d => trips.filter(t => t.dir === d).sort((a,b)=>b.start-a.start);
+// Arrêts volontaires (course, pause…) : retirés du temps de route
+const STOP_MOTIFS = ["Course", "Pause", "Essence", "Déposer quelqu'un", "Autre"];
+const stopMs = (t, from, to) => (t.stops||[]).reduce((a,x) => a + Math.max(0, Math.min(x.end ?? Date.now(), to) - Math.max(x.start, from)), 0);
+const drive = t => (t.end - t.start) - stopMs(t, t.start, t.end);
+const durs = d => tripsFor(d).slice(0,30).map(drive);
+const pct = (arr,p) => { const s=[...arr].sort((a,b)=>a-b); return s[Math.max(0,Math.ceil(p*s.length)-1)]; };
+const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+
+// Vacances scolaires de l'académie de Mayotte : [premier jour sans cours, jour de reprise)
+const VACANCES = [
+  ["d'été", "2026-07-04", "2026-08-24"], ["de la Toussaint", "2026-10-10", "2026-10-26"], ["de Noël", "2026-12-12", "2027-01-11"],
+  ["de Carnaval", "2027-02-20", "2027-03-08"], ["de Pâques", "2027-04-30", "2027-05-18"], ["d'été", "2027-07-10", "2027-08-23"],
+];
+const isoDay = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const vacOf = ms => { const k = isoDay(ms); return VACANCES.find(v => k >= v[1] && k < v[2]) || null; };
+const isVac = t => typeof t.vac === "boolean" ? t.vac : !!vacOf(t.start);
+const periodLbl = v => v ? "en vacances scolaires" : "en période scolaire";
+const minOfDay = ms => { const d = new Date(ms); return d.getHours()*60 + d.getMinutes(); };
+const cdiff = (a,b) => { const x = Math.abs(a-b) % 1440; return Math.min(x, 1440-x); };
+const svcMin = d => { const t = svc(d); if (!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; };
+let veille = null, advice = "", reference = null, lieux = null, resync = null;
+let me = null, sigs = [], sigType = null, sigCol = null, sigSeen = new Set(), sigBooted = false;
+const SIG_TYPES = ["Embouteillage", "Accident", "Route bloquée / barrage", "Barge à l'arrêt ou retardée", "Longue attente de taxi", "Route inondée / éboulement", "Autre"];
+const PLACES = ["Handréma", "Bandraboua", "Dzoumogné", "Longoni", "M'tsamboro", "Acoua", "Mtsangamouji", "Koungou", "Majicavo", "Kawéni", "Mamoudzou centre", "Quai de la barge Mamoudzou", "Passamaïnty", "Tsoundzou", "Dembéni", "Combani", "Sada", "Chirongui", "Quai de la barge Dzaoudzi", "Quai Ballou (amphidrome, Dzaoudzi)", "Quai Issoufali (barge normale, Dzaoudzi)", "Labattoir", "Pamandzi", "Aéroport"];
+const SIG_TTL = 2*3600000;
+const REF_TASK = "trig_01G7xj8QMqw78E51KZLFmyTS";
+let estimation = null, referenceR = null, estimationR = null, refErr = false;
+// Lieux et itinéraires : espace privé de chaque utilisateur. Le calcul en ligne et la veille sont réservés au propriétaire.
+let lieuxRef = null, canCloud = false, pendingLocal = [], abandonAsk = false, veilleAsked = 0;
+const RULE_BEFORE = 480; // avant 8 h : règle de la première barge
+const sameLieux = (x, L = lieux) => x && L && x.depart === L.depart && x.arrivee === L.arrivee;
+const lieuxOf = d => d === "retour" && lieux ? {depart: lieux.arrivee, arrivee: lieux.depart, demandeLe: lieux.demandeLe} : lieux;
+function curRef(d = dir){
+  const L = lieuxOf(d), ref = d === "retour" ? referenceR : reference, est = d === "retour" ? estimationR : estimation;
+  const askedAt = L?.demandeLe ? Date.parse(L.demandeLe) : 0;
+  if (ref && (!L || (sameLieux(ref, L) && Date.parse(ref.updatedAt) >= askedAt))) return ref;
+  if (est && sameLieux(est, L)) return est;
+  return ref || est;
+}
+const refBase = () => lieux;
+const refLocked = () => false;
+// Vérification en direct toutes les 2 minutes : infos route et barge, signalements et lieux relus, puis chaque itinéraire comparé aux signalements en cours
+const LIVE_MS = 120000;
+let liveAt = 0;
+const SIG_MIN = {"Embouteillage": 15, "Accident": 20, "Route bloquée / barrage": 60, "Barge à l'arrêt ou retardée": 30, "Longue attente de taxi": 10, "Route inondée / éboulement": 30, "Autre": 5};
+const nrm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+function liveHits(o, d = dir){
+  const want = d === "aller" ? "vers le travail" : "vers la maison";
+  const txt = nrm([o.nom, o.resume, ...(o.etapes || []).map(e => e.label)].join(" "));
+  const barge = /barge/.test(txt), taxi = /taxi/.test(txt);
+  const hits = [];
+  sigs.filter(sigActive).forEach(x => {
+    const L = nrm(x.lieu), mots = L.split(" ").filter(w => w.length >= 4 && !/^(quai|barge|route|rond|point|depart|arrivee|maison|travail|entre|montee|descente|service|sortie|taxi|centre|dans)$/.test(w));
+    if (x.sens && x.sens !== want && !/barge/i.test(x.type)) return;
+    const onRoute = mots.some(w => txt.includes(w));
+    const ok = /barge/i.test(x.type) ? barge : /taxi/i.test(x.type) ? taxi && (!L || /dzaoudzi|pamandzi|labattoir|aeroport/.test(L) || onRoute) : onRoute;
+    if (!ok) return;
+    const n = Object.keys(x.confirms || {}).length;
+    // Un signalement d'un autre utilisateur, non confirmé, pèse au plus 20 min
+    let min = Math.round((SIG_MIN[x.type] ?? 5) * (n >= 2 ? 1.5 : 1)); if (!n && x.by !== uid) min = Math.min(min, 20);
+    hits.push({type: x.type, lieu: x.lieu, min, bloque: /bloqu|barrage/i.test(x.type) && (n > 0 || x.by === uid)});
+  });
+  return hits;
+}
+const liveMin = (o, d = dir) => Math.min(60, liveHits(o, d).reduce((a, h) => a + h.min, 0));
+const liveBest = d => { const o = refOptions(curRef(d)); if (!o.length) return null;
+  return o.map(x => ({o: x, tot: x.min + liveMin(x, d), bloque: liveHits(x, d).some(h => h.bloque)})).sort((a, b) => (a.bloque - b.bloque) || (a.tot - b.tot))[0]; };
+// Normalise un résultat (nouveau format « options », ou ancien format nord/sud) en jusqu'à 3 itinéraires
+function refOptions(r){
+  if (!r) return [];
+  if (Array.isArray(r.options)) return r.options.filter(o => o && typeof o.min === "number" && o.min > 0).slice(0,3);
+  return ROUTES.filter(k => typeof r.totalMin?.[k] === "number").map(k => {
+    const x = r.routes?.[k] || {}, et = [];
+    et.push({label: "Maison → barge Mamoudzou", km: x.km ?? null, min: x.min ?? null});
+    if (r.barge?.["Amphidrome"]) et.push({label: "Traversée en barge", km: null, min: r.barge["Amphidrome"]});
+    if (r.taxi?.min) et.push({label: "Taxi barge Dzaoudzi → travail", km: r.taxi.km ?? null, min: r.taxi.min});
+    return {nom: k, resume: "", km: null, min: r.totalMin[k], etapes: et};
+  });
+}
+const chosenOpt = (d = dir) => { const o = refOptions(curRef(d)); if (!o.length) return null;
+  return o.find(x => x.nom === (d === "retour" ? lieux?.choixR : lieux?.choix)) || o.reduce((a,b) => b.min < a.min ? b : a); };
+const refMs = (d = dir) => { const o = chosenOpt(d); return o ? o.min*60000 : null; };
+
+// Durée attendue à partir des trajets les plus comparables (même sens, même heure, même passage, même moyen)
+function expected(d, opt = {}){
+  const LL = lieuxOf(d);
+  const all = tripsFor(d).filter(t => !t.dep || !LL?.depart || (nrm(t.dep) === nrm(LL.depart) && nrm(t.arr) === nrm(LL.arrivee))).slice(0,80);
+  const route = opt.route ?? null;
+  const mode = d==="aller" ? (opt.mode ?? ls.get("trajet.modeA")) : null;
+  const rm = refMs(d);
+  const base = all.length >= 3 ? pct(all.map(drive), .8) : (rm ?? (d==="aller"?S.estA:S.estR)*60000);
+  const sm = svcMin(d);
+  const depMin = sm == null ? null : (d==="aller" ? sm - Math.round(base/60000) - S.margin : sm);
+  const near = t => depMin == null || cdiff(minOfDay(t.start), depMin) <= 75;
+  const vacNow = !!vacOf(Date.now()), same = t => isVac(t) === vacNow, P = ", " + periodLbl(vacNow);
+  const levels = [
+    {f: t => same(t) && near(t) && (!route || t.route===route) && (!mode || t.mode===mode), lbl: `à cette heure-ci${route?", "+route.toLowerCase():""}${mode?", en "+mode.toLowerCase():""}${P}`, p:1},
+    {f: t => same(t) && near(t) && (!route || t.route===route), lbl: `à cette heure-ci${route?", "+route.toLowerCase():""}${P}`, p:1},
+    {f: t => same(t) && near(t), lbl: `à cette heure-ci${P}`, p:1},
+    {f: t => near(t) && (!route || t.route===route), lbl: `à cette heure-ci${route?", "+route.toLowerCase():""}`},
+    {f: near, lbl: "à cette heure-ci"},
+    {f: () => true, lbl: "tous horaires confondus"},
+  ];
+  for (const L of levels) {
+    const set = all.filter(L.f);
+    if (set.length >= 3) {
+      const ds = set.map(drive);
+      const wj = set.filter(t => (t.jams||[]).length);
+      const jamAvg = wj.length ? avg(wj.map(t => t.jams.reduce((a,j)=>a+(j.end-j.start),0))) : 0;
+      return {ms: pct(ds,.8), n: set.length, set, depMin, periodMatch: !!L.p, src: `d'après tes ${set.length} trajets ${L.lbl}`, jamRate: wj.length/set.length, jamAvg};
+    }
+  }
+  if (rm && all.length < 3) return {ms: rm, n: all.length, set: [], depMin, jamRate: 0, jamAvg: 0,
+    src: `selon ton trajet de référence « ${chosenOpt(d).nom} »${curRef(d).manuel ? " saisi par toi" : curRef(d).rapide ? " (estimation rapide)" : " calculé en ligne"}, hors embouteillages (${all.length ? "encore " + (3-all.length) + " trajet(s) à chronométrer" : "chronomètre tes trajets pour l'affiner"})`};
+  return {ms: base, n: all.length, set: [], depMin, src: all.length ? `estimation de départ, encore ${3-all.length} trajet(s) à chronométrer` : "estimation de départ, chronomètre 3 trajets pour l'affiner", jamRate: 0, jamAvg: 0};
+}
+
+function veilleFresh(){
+  if (!veille || !veille.updatedAt) return null;
+  const age = Date.now() - Date.parse(veille.updatedAt);
+  return age < 18*3600000 ? veille : null;
+}
+// Chaque info de la veille peut porter ses lieux, un indicateur barge et un retard estimé : on ne compte que celles qui touchent l'itinéraire.
+// Les anciennes veilles, sans ce détail, gardent leur retard global.
+function veilleHits(o, d = dir){
+  const v = veilleFresh(); if (!v) return null;
+  const items = (v.items || []).filter(it => typeof it.min === "number");
+  if (!items.length) return null;
+  const L = lieuxOf(d), txt = nrm([o?.nom, o?.resume, ...((o?.etapes) || []).map(e => e.label), L?.depart, L?.arrivee].join(" ")), barge = tripBarge();
+  return items.filter(it => it.min > 0 && ((it.barge && barge) || (Array.isArray(it.lieux) ? it.lieux : []).some(l => nrm(l).split(" ").some(w => w.length >= 4 && !/^(route|quai|rond|point|carrefour|grande|petite|terre|mayotte|centre)$/.test(w) && txt.includes(w)))));
+}
+const extraFromVeille = (o = chosenOpt(dir), d = dir) => { const v = veilleFresh(); if (!v) return 0; const h = veilleHits(o, d);
+  return Math.max(0, Math.min(120, h ? h.reduce((a, it) => a + it.min, 0) : (+v.extraMin || 0))); };
+
+function routeTip(d){
+  if (d !== "aller" && d !== "retour") return "";
+  const r = ROUTES.map(k => ({k, e: expected(d, {route: k})})).filter(x => x.e.set.length >= 3 && x.e.set.every(t=>t.route===x.k));
+  if (r.length < 2) return "";
+  r.sort((a,b)=>a.e.ms-b.e.ms);
+  const gain = Math.round((r[1].e.ms - r[0].e.ms)/60000);
+  return gain >= 5 ? ` ${r[0].k} est en général plus rapide de ${gain} min à cette heure.` : "";
+}
+
+// Heure de départ : début de service − durée attendue du trajet − marge − retards liés aux infos route et aux signalements.
+function renderPlan(){
+  const t = svc(dir);
+  $("lA").classList.toggle("on", dir==="aller"); $("lR").classList.toggle("on", dir==="retour");
+  renderVeille();
+  if (!t) { $("leaveAt").textContent = "--:--";
+    $("why").textContent = dir==="aller" ? "Renseigne ton heure de début de service en haut pour savoir à quelle heure partir." : "Renseigne ton heure de fin de service en haut pour connaître ton heure d'arrivée à la maison."; return; }
+  const e = expected(dir), chL = chosenOpt(dir), lv = chL ? liveMin(chL) : 0, vx = extraFromVeille(chL, dir), x = vx + lv;
+  const causes = [vx ? `${vx} min pour les infos route du jour` : null, lv ? `${lv} min pour les signalements en cours sur ton itinéraire` : null].filter(Boolean).join(" et ");
+  const [h,m] = t.split(":").map(Number);
+  const target = new Date(); target.setHours(h,m,0,0);
+  const vNow = vacOf(Date.now());
+  const vacNote = vNow && !e.periodMatch && e.set.length ? " Vacances scolaires en cours : les routes sont en général moins chargées, ce calcul fondé sur des trajets en période scolaire est donc plutôt prudent." : "";
+  const jam = e.jamRate >= .34 ? ` Embouteillage ${Math.round(e.jamRate*100)} % du temps sur ces trajets (${fmtDur(e.jamAvg)} perdues en moyenne), déjà compté.` : "";
+  const al = x ? `, plus ${causes}.` : "";
+  const bargeNote = dir === "aller" && tripBarge() && svcMin("aller") < RULE_BEFORE ? " Service tôt le matin : vérifie que la première barge (5 h 30) te laisse arriver à l'heure." : "";
+  if (dir === "aller") {
+    $("leaveAt").textContent = hhmm(new Date(target - e.ms - (S.margin + x)*60000));
+    $("why").textContent = `Pour prendre ton service à ${t} : ${fmtDur(e.ms)} de trajet ${e.src}, plus ${S.margin} min de marge${al || "."}${jam}${routeTip(dir)}${vacNote}${bargeNote}`;
+  } else {
+    $("leaveAt").textContent = hhmm(new Date(+target + e.ms + x*60000));
+    $("why").textContent = `Si tu finis ton service à ${lab(t)} : ${fmtDur(e.ms)} de trajet ${e.src}${al || "."}${jam}${routeTip(dir)}${vacNote}`;
+  }
+  $("advice").hidden = !advice; $("advice").textContent = advice;
+}
+
+function renderVeille(){
+  const box = $("veille"); box.innerHTML = "";
+  const v = veilleFresh();
+  const head = document.createElement("div"); head.className = "vhead";
+  const h = document.createElement("h2"); h.textContent = "Infos route et barge"; head.append(h);
+  const lv = document.createElement("span"); lv.className = "lvl " + (v ? (v.level||"normal") : "none");
+  lv.textContent = !v ? "pas de veille récente" : ({normal:"rien à signaler", vigilance:"vigilance", perturbe:"perturbé"}[v.level] || v.level);
+  head.append(lv); box.append(head);
+  if (!v) { const p = document.createElement("p"); p.className="empty";
+    p.textContent = veille ? `Dernière veille : ${new Date(veille.updatedAt).toLocaleString("fr-FR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}, trop ancienne pour être prise en compte.` : "Aucune veille pour l'instant.";
+    p.textContent += " La veille passe en revue la presse locale et les annonces officielles, seulement quand elle est demandée.";
+    box.append(p); veilleBtn(box); return; }
+  if (v.summary) { const p = document.createElement("p"); p.className="vsum"; p.textContent = v.summary; box.append(p); }
+  const ul = document.createElement("ul"); ul.className = "vlist";
+  (v.items||[]).slice(0,6).forEach(it => {
+    const li = document.createElement("li");
+    const t = document.createElement("strong"); t.textContent = it.title; li.append(t);
+    if (it.detail) li.append(document.createTextNode(" " + it.detail));
+    const meta = document.createElement("small");
+    if (it.url) { const a = document.createElement("a"); a.href = it.url; a.target="_blank"; a.rel="noopener"; a.textContent = it.source || "source"; meta.append(a); }
+    else if (it.source) meta.append(document.createTextNode(it.source));
+    if (it.date) meta.append(document.createTextNode(" · " + it.date));
+    li.append(meta); ul.append(li);
+  });
+  if (ul.children.length) box.append(ul);
+  const f = document.createElement("p"); f.className = "empty";
+  f.textContent = `Relu toutes les 2 minutes · veille du ${new Date(v.updatedAt).toLocaleString("fr-FR",{weekday:"long",hour:"2-digit",minute:"2-digit"})}` + (extraFromVeille() ? ` · ${extraFromVeille()} min ajoutées au calcul de ton trajet` : " · rien sur ton itinéraire");
+  box.append(f);
+  if (resync) { const rb = btn("Actualiser les infos", "btn ghost"); rb.style.marginTop = "10px"; rb.onclick = () => resync(true); box.append(rb); }
+  veilleBtn(box);
+}
+function veilleBtn(box){
+  if (!canCloud || !db) return;
+  const run = veilleAsked && Date.now() - veilleAsked < 5*60000;
+  const vb = btn(run ? "Veille en cours, résultat dans 2 à 3 min…" : "Lancer une veille maintenant", "btn ghost"); vb.style.marginTop = "10px"; vb.disabled = !!run; vb.onclick = askVeille; box.append(vb);
+}
+async function askVeille(){
+  if (Date.now() - (ls.get("trajet.veilleAsk") || 0) < 10*60000) { status("Veille déjà demandée il y a moins de 10 minutes."); resync?.(true); return; }
+  ls.set("trajet.veilleAsk", Date.now()); veilleAsked = Date.now(); renderVeille();
+  try { const mcp = await window.claude?.use?.("mcp"); if (!mcp) throw {code: "unavailable"};
+    await mcp.callTool("Claude Code Remote", "fire_trigger", {trigger_id: VEILLE_TASK, text: "Veille demandée depuis l'appli."}, {cache: false});
+    status("Veille lancée : le résultat s'affichera ici dans 2 à 3 minutes."); }
+  catch(e) { veilleAsked = 0; ls.set("trajet.veilleAsk", 0); status("La veille n'a pas pu être lancée d'ici."); }
+  renderVeille();
+}
+
+async function askAdvice(){
+  const b = $("adviceBtn"); const sample = await window.claude?.use?.("sample");
+  if (!sample) { advice = "Le conseil personnalisé n'est pas disponible ici. L'heure affichée tient déjà compte de tes trajets et de la veille."; renderPlan(); return; }
+  b.disabled = true; b.textContent = "Analyse en cours…";
+  const e = expected(dir), list = tripsFor(dir).slice(0,40).map(t => ({
+    depart: new Date(t.start).toLocaleString("fr-FR",{weekday:"short",hour:"2-digit",minute:"2-digit"}), duree_min: Math.round((t.end-t.start)/60000),
+    passage: t.route, moyen: t.mode, vacances_scolaires: isVac(t), barge: t.barge, attente_quai_min: quaiWait(t) != null ? Math.round(quaiWait(t)/60000) : null, attente_taxi_min: taxiWait(t) != null ? Math.round(taxiWait(t)/60000) : null,
+    embouteillages: (t.jams||[]).map(j => `${hhmm(new Date(j.start))}-${hhmm(new Date(j.end))} ${jamSpot(j)}`), evenements: (t.events||[]).map(e => `${hhmm(new Date(e.at))} ${e.type} ${jamSpot(e)}`), ralentissements: t.tags, note: t.note }));
+  const input = `Tu conseilles une personne à Mayotte sur son trajet ${dir==="aller" ? "maison → travail" : "travail → maison"} : ${lieuxOf(dir)?.depart || "lieu de départ non renseigné"} → ${lieuxOf(dir)?.arrivee || "lieu d'arrivée non renseigné"}${tripBarge() ? ", avec la barge Mamoudzou–Dzaoudzi et un taxi côté Petite-Terre" : ", par la route, sans barge"}.
+Maintenant : ${new Date().toLocaleString("fr-FR")} (${vacOf(Date.now()) ? "vacances scolaires " + vacOf(Date.now())[0] + " à Mayotte, routes en général moins chargées" : "période scolaire"}). ${dir==="aller" ? "Début" : "Fin"} de service : ${svc(dir) || "non renseigné"}.
+Calcul actuel de l'appli : durée prévue ${Math.round(e.ms/60000)} min (${e.src}), marge ${S.margin} min, ajout veille ${extraFromVeille()} min, heure affichée ${$("leaveAt").textContent}.
+Trajet normal (hors embouteillages) : ${JSON.stringify(curRef() || "non calculé")}.
+Signalements des utilisateurs de l'appli (2 dernières heures) : ${JSON.stringify(sigs.filter(sigActive).map(x => ({type: x.type, lieu: x.lieu, detail: x.detail, il_y_a_min: Math.round((Date.now()-x.at)/60000), confirmations: Object.keys(x.confirms||{}).length})))}.
+Veille Internet du jour (presse locale, annonces officielles) : ${JSON.stringify(veilleFresh() || "aucune veille récente")}.
+Historique de ses trajets dans ce sens (JSON) : ${JSON.stringify(list)}.
+Réponds en français, 3 à 5 phrases courtes, tutoiement, sans titre ni liste. Donne : l'heure de départ que tu recommandes et pourquoi, l'itinéraire et le moyen à privilégier si les données le justifient, le type de barge si le trajet en comporte une, et les précautions liées aux infos du jour. N'invente aucun fait absent des données ; si les données sont trop maigres, dis-le simplement.`;
+  try {
+    const r = await sample(input, {modelTier: "default", cache: false, onText: ({text}) => { advice = text; $("advice").hidden = false; $("advice").textContent = text; }});
+    advice = r.text;
+  } catch (err) {
+    advice = err?.code === "rate_limited" ? "Trop de demandes pour l'instant, réessaie dans quelques minutes." : (err?.code === "not_granted" ? "Autorise l'appli à interroger Claude pour obtenir un conseil." : "Le conseil n'a pas pu être généré. Réessaie plus tard.");
+  }
+  b.disabled = false; b.textContent = "Demander un conseil pour ce trajet"; renderPlan();
+}
+
+function renderRoute(){
+  const st = curSteps(), ol = $("route"); ol.innerHTML = "";
+  const stamps = active && active.dir === dir ? active.stamps : [];
+  st.forEach((name,i) => {
+    const li = document.createElement("li");
+    if (i < stamps.length) li.className = "done"; else if (i === stamps.length && active) li.className = "cur";
+    const dot = document.createElement("span"); dot.className="dot"; dot.textContent = i < stamps.length ? "✓" : i+1;
+    const nm = document.createElement("span"); nm.className="name"; nm.textContent = name;
+    let hint = HINTS_DIR[dir]?.[name] || HINTS[name];
+    const bq = active?.barge || active?.bargePick;
+    if (/arrivée barge dzaoudzi/i.test(name)) hint = bq ? `${bq} · ${QUAI[bq]}` : QUAIS_DZA;
+    if (/arrivée barge mamoudzou/i.test(name)) hint = "Même quai pour l'amphidrome et la barge normale";
+    if (dir === "retour" && /^descente du taxi/i.test(name)) hint = bq ? `Au ${QUAI[bq]} (${bq.toLowerCase()})` : QUAIS_DZA;
+    if (dir === "aller" && isTaxiUp(name) && bq && !(i > 0 && i < stamps.length)) hint = `Au ${QUAI[bq]}, vers le travail`;
+    if (isTaxiUp(name) && i > 0 && i < stamps.length) hint = `${fmtDur(stamps[i]-stamps[i-1])} d'attente du taxi` + (dir === "aller" && bq ? ` au ${QUAI[bq]}` : "");
+    if (dir==="aller" && i===0 && i < stamps.length && active?.mode) hint = [active.mode, active.route?.toLowerCase()].filter(Boolean).join(" · ");
+    if (isRoute(name) && i < stamps.length && active?.route) hint = [isHome(name) ? active.mode : null, active.route.toLowerCase()].filter(Boolean).join(" · ");
+    if (isBarge(name)) { hint = i < stamps.length && active?.barge ? active.barge : (active?.bargePick || "Amphidrome ou barge normale");
+      if (dir === "retour" && bq) hint += ` · ${QUAI[bq]}`;
+      if (i > 0 && i < stamps.length) hint += ` · ${fmtDur(stamps[i]-stamps[i-1])} d'attente au quai`; }
+    if (i===st.length-1 && dir==="aller") hint = ((active?.service || svc("aller")) ? `Début de service à ${active?.service || svc("aller")}` + (i<stamps.length && active.service ? ` · ${gap(stamps[i]-atTime(stamps[0], active.service))}` : "") : "Début de service non renseigné");
+    if (i===0 && dir==="retour") hint = ((active?.service || svc("retour")) ? `Fin de service à ${lab(active?.service || svc("retour"))}` : "Fin de service non renseignée");
+    if (hint) { const h=document.createElement("span"); h.className="hint"; h.textContent=hint; nm.append(h); }
+    const t = document.createElement("span"); t.className="t";
+    if (i < stamps.length) {
+      const tt = document.createElement("span"); tt.textContent = hhmm(new Date(stamps[i]));
+      if (i > 0) { const dd = document.createElement("small"); dd.textContent = "+" + fmtDur(stamps[i]-stamps[i-1]); tt.append(dd); }
+      const ed = btn("✎", "edit"); ed.setAttribute("aria-label", `Corriger l'heure : ${name}`); ed.title = "Corriger l'heure";
+      ed.onclick = () => { manualIdx = i; manualPick = null; renderActions(); $("actions").scrollIntoView({behavior: "smooth", block: "center"}); };
+      t.append(tt, ed);
+    }
+    li.append(dot,nm,t); ol.append(li);
+  });
+  renderJams();
+  renderStops();
+  renderActions();
+}
+
+function renderActions(){
+  const box = $("actions"); box.innerHTML = "";
+  const st = curSteps();
+  if (active && active.dir !== dir) {
+    box.innerHTML = `<p class="empty">Un trajet « ${active.dir} » est en cours. Repasse sur cet onglet pour le continuer.</p>`; return;
+  }
+  if (active && manualIdx != null && manualIdx < active.steps.length && manualIdx <= active.stamps.length) { renderManual(box); return; }
+  if (!active) {
+    const tip = () => { const p = document.createElement("p"); p.className = "empty"; p.style.margin = "12px 0 0";
+      p.textContent = "Une fois le trajet lancé, les boutons « Je m'arrête (course, pause…) », « Début d'embouteillage » et « Noter un évènement » apparaissent ici, sous l'étape en cours."; return p; };
+    if (dir==="retour") { const b = btn("Je sors du travail", "btn"); b.onclick = () => start(); box.append(b); lateBox(box, null, false); box.append(tip()); return; }
+    const q2 = document.createElement("p"); q2.className="empty"; q2.style.margin="0 0 10px"; q2.textContent = dir==="retour" ? "Je sors du travail en :" : "Je pars de la maison en :"; box.append(q2);
+    // Le moyen se choisit sans rien lancer (dernier choix déjà coché) ; seul le grand bouton démarre le chrono
+    const mk = dir === "retour" ? "trajet.modeR" : "trajet.modeA", saved = modeMem[mk] ?? ls.get(mk), cur = MODES.includes(saved) ? saved : null;
+    const r0 = document.createElement("div"); r0.className="row bpick"; r0.style.marginTop="0"; r0.setAttribute("role","radiogroup"); r0.setAttribute("aria-label","Moyen de transport");
+    MODES.forEach(k => { const b = btn(k, "btn ghost pick"); b.setAttribute("role","radio"); b.setAttribute("aria-checked", cur === k); b.onclick = () => { modeMem[mk] = k; ls.set(mk, k); renderAll(); }; r0.append(b); });
+    const go = btn(cur ? `${dir === "retour" ? "Je sors du travail" : "Je pars"} · ${cur}` : "Choisis d'abord ton moyen", "btn"); go.id = "goBtn"; go.style.marginTop = "10px";
+    go.disabled = !cur; if (!cur) go.style.opacity = ".45"; go.onclick = () => start(cur);
+    box.append(r0, go); lateBox(box, cur, true); box.append(tip()); return;
+  }
+  const n = active.stamps.length;
+  if (n < st.length && openStop()) {
+    const o = openStop();
+    const p = document.createElement("p"); p.className = "stopnow";
+    p.textContent = `À l'arrêt depuis ${hhmm(new Date(o.start))}${o.motif ? " · " + o.motif : ""}. Le chrono du trajet continue, mais cet arrêt ne comptera pas dans ton temps de route.`;
+    const b = btn("Je reprends la route", "btn"); b.onclick = toggleStop;
+    const c = abandonBtn("Abandonner le trajet"); c.style.marginTop = "10px";
+    box.append(p, b, c); return;
+  }
+  if (n < st.length) {
+    if (isBarge(st[n])) {
+      // 1) choisir la barge (ne lance rien), 2) appuyer sur « Départ » quand elle part
+      const q = document.createElement("p"); q.className="empty"; q.style.margin="0 0 10px"; q.textContent = active.bargePick ? "Barge choisie. Appuie sur « Départ » quand elle part." : "Quelle barge prends-tu ? (le chrono ne se lance pas encore)"; box.append(q);
+      { const w = document.createElement("p"); w.className = "stopnow"; w.id = "waitLive"; w.dataset.since = active.stamps.at(-1); w.textContent = waitTxt(active.stamps.at(-1)); box.insertBefore(w, q); }
+      const r0 = document.createElement("div"); r0.className="row bpick"; r0.style.marginTop="0"; r0.setAttribute("role","radiogroup"); r0.setAttribute("aria-label","Type de barge");
+      BARGES.forEach(k => { const b = btn(dir === "retour" ? `${k} · ${QUAI[k]}` : k, "btn ghost pick"); b.setAttribute("role","radio"); b.setAttribute("aria-checked", active.bargePick === k);
+        b.onclick = () => { active.bargePick = k; persistActive(); renderActions(); }; r0.append(b); });
+      box.append(r0);
+      const go = btn(active.bargePick ? `Départ · ${active.bargePick === "Amphidrome" ? "l'amphidrome" : "la barge normale"}` : "Départ de la barge", "btn"); go.style.marginTop = "10px";
+      go.disabled = !active.bargePick; if (go.disabled) go.style.opacity = ".45";
+      go.onclick = () => { const k = active.bargePick; delete active.bargePick; stamp(k); }; box.append(go);
+    } else if (isRoute(st[n])) {
+      if (isHome(st[n])) {
+        const q2 = document.createElement("p"); q2.className="empty"; q2.style.margin="0 0 10px"; q2.textContent = "Comment rentres-tu à la maison ?"; box.append(q2);
+        const r0 = document.createElement("div"); r0.className="row"; r0.style.marginTop="0";
+        MODES.forEach(k => { const b = btn(k, "btn"); b.onclick = () => stamp(null, k); r0.append(b); });
+        box.append(r0);
+      } else {
+        const b = btn(`Je passe · ${st[n]}`, "btn"); b.onclick = () => stamp(); box.append(b);
+      }
+    } else {
+      // Retour : la barge (et donc le quai Ballou ou Issoufali) se choisit à la descente du taxi
+      if (dir === "retour" && /^descente du taxi/i.test(st[n])) {
+        const q = document.createElement("p"); q.className="empty"; q.style.margin="0 0 10px"; q.textContent = "Quelle barge vas-tu prendre ? Le taxi te dépose à son quai."; box.append(q);
+        const r0 = document.createElement("div"); r0.className="row bpick"; r0.style.margin="0 0 10px"; r0.setAttribute("role","radiogroup"); r0.setAttribute("aria-label","Type de barge");
+        BARGES.forEach(k => { const c = btn(`${k} · ${QUAI[k]}`, "btn ghost pick"); c.setAttribute("role","radio"); c.setAttribute("aria-checked", active.bargePick === k);
+          c.onclick = () => { active.bargePick = k; persistActive(); renderRoute(); }; r0.append(c); });
+        box.append(r0);
+      }
+      if (isTaxiUp(st[n]) && n > 0) { const w = document.createElement("p"); w.className = "stopnow"; w.id = "waitLive"; w.dataset.kind = "taxi"; w.dataset.since = active.stamps.at(-1); w.textContent = taxiTxt(active.stamps.at(-1)); box.append(w); }
+      const b = btn(st[n], "btn"); b.onclick = () => stamp(); box.append(b);
+    }
+    renderStopButton(box);
+    const mb = btn("Pas pu appuyer ? Saisir l'heure à la main", "btn ghost"); mb.style.marginTop = "10px";
+    mb.onclick = () => { manualIdx = n; manualPick = null; renderActions(); }; box.append(mb);
+    const open = openJam();
+    const jb = btn(open ? "Fin de l'embouteillage" : "Début d'embouteillage", "btn jam" + (open ? " on" : ""));
+    jb.onclick = toggleJam; box.append(jb);
+    if (!open && sigCol && !STANDALONE) { const sh = document.createElement("p"); sh.className = "empty"; sh.style.margin = "6px 0 0"; sh.style.fontSize = ".82rem";
+      sh.textContent = S.shareJams !== false ? "L'embouteillage sera aussi signalé aux autres utilisateurs (réglable en bas de page)." : "Embouteillage noté pour toi seul (partage coupé dans les réglages)."; box.append(sh); }
+    renderEventButton(box);
+    if (!STANDALONE) { const sb = btn("Prévenir les autres utilisateurs (avec le lieu)", "btn ghost"); sb.style.marginTop = "10px";
+    sb.onclick = () => { $("sigForm").open = true; $("signal").scrollIntoView({behavior: "smooth", block: "start"}); }; box.append(sb); }
+    const r = document.createElement("div"); r.className="row";
+    const u = btn("Annuler la dernière étape","btn ghost"); u.onclick = undo;
+    const c = abandonBtn("Abandonner");
+    r.append(u,c); box.append(r);
+  } else {
+    const p = document.createElement("p"); p.className="empty"; p.textContent = "Quelque chose a ralenti le trajet ?"; box.append(p);
+    const ch = document.createElement("div"); ch.className="chips";
+    TAGS.forEach(t => { const c = btn(t,"chip"); c.setAttribute("aria-pressed", tags.has(t)); c.onclick=()=>{tags.has(t)?tags.delete(t):tags.add(t); renderActions();}; ch.append(c); });
+    const ta = document.createElement("textarea"); ta.id="note"; ta.placeholder="Note (facultatif) : barge ratée de peu, déviation…"; ta.value=note; ta.oninput=e=>note=e.target.value;
+    const s = btn(active.editId ? "Enregistrer la correction" : "Enregistrer le trajet","btn"); s.style.marginTop="12px"; s.onclick = finish;
+    if (active.editId) { const k = btn("Annuler la correction","btn ghost"); k.style.marginTop="10px"; k.onclick = () => { active = null; tags = new Set(); note = ""; persistActive(); renderAll(); status("Correction annulée, trajet inchangé."); };
+      const pe = document.createElement("p"); pe.className = "stopnow"; pe.textContent = "Correction d'un trajet enregistré : touche ✎ à côté d'une heure pour la modifier."; box.append(pe, ch, ta, s, k); return; }
+    const u = btn("Annuler la dernière étape","btn ghost"); u.style.marginTop="10px"; u.onclick = undo;
+    box.append(ch, ta, s, u);
+  }
+}
+const btn = (t,c) => { const b=document.createElement("button"); b.className=c; b.textContent=t; b.type="button"; return b; };
+// Abandon en deux appuis : le premier demande confirmation pendant 6 secondes
+function abandonBtn(label){
+  const c = btn(abandonAsk ? "Confirmer : trajet perdu" : label, "btn ghost");
+  if (abandonAsk) { c.style.color = "var(--rouge)"; c.style.borderColor = "var(--rouge)"; }
+  c.onclick = () => {
+    if (!abandonAsk) { abandonAsk = true; renderActions(); setTimeout(() => { if (abandonAsk) { abandonAsk = false; renderActions(); } }, 6000); return; }
+    abandonAsk = false; const j = active && openJam(); if (j?.sigId) endSig(j.sigId, true);
+    active = null; persistActive(); stopTick(); renderAll(); status("Trajet abandonné.");
+  };
+  return c;
+}
+
+// Saisie manuelle d'une heure (étape oubliée) ou correction d'une heure déjà notée
+function manualTs(v, i){
+  const [h, m] = (v || "").split(":").map(Number); if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  const ref = i > 0 ? active.stamps[i-1] : (active.stamps[0] ?? Date.now());
+  let best = null;
+  for (const dd of [-1, 0, 1]) { const d = new Date(ref); d.setDate(d.getDate()+dd); d.setHours(h, m, 0, 0);
+    if (best == null || Math.abs(+d - ref) < Math.abs(best - ref)) best = +d; }
+  return best;
+}
+function renderManual(box){
+  const i = manualIdx, st = active.steps, isNew = i >= active.stamps.length, name = st[i];
+  const p = document.createElement("p"); p.className = "stopnow";
+  p.textContent = isNew ? `À quelle heure : « ${name} » ?` : `Corriger l'heure : « ${name} »`;
+  box.append(p);
+  const lb = document.createElement("label"); lb.className = "mlab"; lb.textContent = "Heure";
+  const inp = document.createElement("input"); inp.type = "time"; inp.id = "mTime";
+  inp.value = hhmm(new Date(isNew ? Date.now() : active.stamps[i])); lb.append(inp); box.append(lb);
+  const pickFrom = isNew && isBarge(name) ? BARGES : (isNew && dir === "retour" && isHome(name) ? MODES : null);
+  if (pickFrom) {
+    manualPick ||= (isBarge(name) ? (active.bargePick || active.barge) : active.mode) || pickFrom[0];
+    const q = document.createElement("p"); q.className = "empty"; q.style.margin = "12px 0 0"; q.textContent = isBarge(name) ? "Quelle barge ?" : "Comment rentres-tu ?"; box.append(q);
+    const ch = document.createElement("div"); ch.className = "chips"; ch.style.margin = "8px 0 0";
+    pickFrom.forEach(k => { const c = btn(k, "chip"); c.setAttribute("aria-pressed", manualPick === k);
+      c.onclick = () => { const v = $("mTime").value; manualPick = k; renderActions(); $("mTime").value = v; }; ch.append(c); });
+    box.append(ch);
+  }
+  const err = document.createElement("p"); err.className = "empty"; err.style.color = "var(--rouge)"; err.hidden = true; box.append(err);
+  const ok = btn("Enregistrer cette heure", "btn"); ok.style.marginTop = "12px";
+  ok.onclick = () => {
+    let ts = manualTs(inp.value, i); const prev = active.stamps[i-1], next = isNew ? null : active.stamps[i+1];
+    const fail = m => { err.textContent = m; err.hidden = false; };
+    if (ts == null) return fail("Indique une heure.");
+    // Même minute que l'étape voisine : on cale sur elle plutôt que de refuser
+    if (prev != null && ts < prev && prev - ts < 60000) ts = prev;
+    if (next != null && ts > next && ts - next < 60000) ts = next;
+    if (ts > Date.now() && ts - Date.now() < 60000) ts = Date.now();
+    if (prev != null && ts < prev) return fail(`L'heure doit être après ${hhmm(new Date(prev))} (« ${st[i-1]} »).`);
+    if (next != null && ts > next) return fail(`L'heure doit être avant ${hhmm(new Date(next))} (« ${st[i+1]} »).`);
+    if (ts > Date.now() + 60000) return fail("Cette heure n'est pas encore passée.");
+    const pick = manualPick; manualIdx = null; manualPick = null;
+    if (isNew) { if (pickFrom && isBarge(name)) { delete active.bargePick; stamp(pick, null, null, ts); } else if (pickFrom) stamp(null, pick, null, ts); else stamp(null, null, null, ts); }
+    else { active.stamps[i] = ts; persistActive(); renderAll(); }
+    status(`Heure enregistrée : ${name} à ${hhmm(new Date(ts))}.`);
+  };
+  const c = btn("Annuler", "btn ghost"); c.style.marginTop = "10px"; c.onclick = () => { manualIdx = null; manualPick = null; renderActions(); };
+  box.append(ok, c);
+}
+function start(mode, route){
+  manualIdx = null; manualPick = null;
+  let st = steps(dir);
+  const o0 = chosenOpt(dir), L0 = lieuxOf(dir), prevu = Math.round(expected(dir).ms);
+  active = {dir, stamps:[Date.now()], steps: st, service: svc(dir) || null, vac: !!vacOf(Date.now()), prevu, itin: o0?.nom || null, dep: L0?.depart || null, arr: L0?.arrivee || null};
+  if (mode) active.mode = mode; if (route) active.route = route;
+  if (dir==="aller" && mode) ls.set("trajet.modeA", mode); tags=new Set(); note=""; persistActive(); startTick(); renderAll(); }
+const openJam = () => active?.jams?.find(j => !j.end);
+const openStop = () => active?.stops?.find(x => !x.end);
+let stopPick = false;
+function renderStopButton(box){
+  if (!stopPick) { const b = btn("Je m'arrête (course, pause…)", "btn stopbtn"); b.onclick = () => { stopPick = true; renderActions(); }; box.append(b); return; }
+  const q = document.createElement("p"); q.className = "empty"; q.style.margin = "12px 0 8px"; q.textContent = "Pourquoi t'arrêtes-tu ?"; box.append(q);
+  const ch = document.createElement("div"); ch.className = "chips"; ch.style.margin = "0";
+  STOP_MOTIFS.forEach(m => { const c = btn(m, "chip"); c.onclick = () => { stopPick = false; toggleStop(m); }; ch.append(c); });
+  const x = btn("Annuler", "chip"); x.onclick = () => { stopPick = false; renderActions(); }; ch.append(x);
+  box.append(ch);
+}
+// Trajet déjà commencé sans avoir appuyé : on saisit l'heure de départ, puis chaque étape avec « Saisir l'heure à la main »
+function lateBox(box, mode, needMode){
+  if (!lateStart) { const b = btn("Déjà parti ? Saisir l'heure de départ à la main", "btn ghost"); b.style.marginTop = "10px"; b.onclick = () => { lateStart = true; renderActions(); }; box.append(b); return; }
+  const lb = document.createElement("label"); lb.className = "mlab"; lb.style.marginTop = "12px"; lb.textContent = "Heure de départ";
+  const inp = document.createElement("input"); inp.type = "time"; inp.id = "lTime"; inp.value = hhmm(new Date()); lb.append(inp);
+  const err = document.createElement("p"); err.className = "empty"; err.style.color = "var(--rouge)"; err.hidden = true;
+  const ok = btn("Démarrer le trajet à cette heure", "btn"); ok.style.marginTop = "12px";
+  ok.onclick = () => {
+    const [h, m] = (inp.value || "").split(":").map(Number);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) { err.textContent = "Indique une heure."; err.hidden = false; return; }
+    if (needMode && !mode) { err.textContent = "Choisis d'abord ton moyen de transport, au-dessus."; err.hidden = false; return; }
+    const d = new Date(); d.setHours(h, m, 0, 0); if (+d > Date.now() + 60000) d.setDate(d.getDate() - 1); // une heure pas encore passée aujourd'hui = hier
+    lateStart = false; start(mode || undefined); active.stamps[0] = +d; active.vac = !!vacOf(+d); persistActive(); renderAll();
+    status(`Trajet démarré à ${hhmm(d)}. Pour chaque étape déjà passée, touche « Pas pu appuyer ? Saisir l'heure à la main ».`);
+  };
+  const c = btn("Annuler", "btn ghost"); c.style.marginTop = "10px"; c.onclick = () => { lateStart = false; renderActions(); };
+  box.append(lb, err, ok, c);
+}
+function renderEventButton(box){
+  const evs = active.events || [];
+  if (evs.length) { const l = document.createElement("div"); l.className = "chips"; l.style.margin = "10px 0 0"; l.setAttribute("aria-label", "Évènements notés sur ce trajet");
+    evs.forEach((e, k) => { const c = btn(`${e.type} · ${hhmm(new Date(e.at))} ✕`, "chip"); c.setAttribute("aria-pressed", "true"); c.setAttribute("aria-label", `Retirer : ${e.type} à ${hhmm(new Date(e.at))}`);
+      c.onclick = () => { active.events.splice(k, 1); persistActive(); renderActions(); }; l.append(c); });
+    box.append(l); }
+  if (!evPick) { const b = btn("Noter un évènement (accident, route bloquée…)", "btn stopbtn"); b.style.color = "var(--ambre)"; b.style.borderColor = "var(--ambre)"; b.onclick = () => { evPick = true; renderActions(); }; box.append(b); return; }
+  const q = document.createElement("p"); q.className = "empty"; q.style.margin = "12px 0 8px"; q.textContent = "Que rencontres-tu ? (noté avec l'heure dans ce trajet)"; box.append(q);
+  const ch = document.createElement("div"); ch.className = "chips"; ch.style.margin = "0";
+  EV_TYPES.forEach(t => { const c = btn(t, "chip"); c.onclick = () => { evPick = false; (active.events ||= []).push({type: t, at: Date.now(), after: active.steps[active.stamps.length-1], before: active.steps[active.stamps.length]});
+    persistActive(); renderActions(); status(`« ${t} » noté dans ton trajet à ${hhmm(new Date())}.`); }; ch.append(c); });
+  const x = btn("Annuler", "chip"); x.onclick = () => { evPick = false; renderActions(); }; ch.append(x);
+  box.append(ch);
+}
+function toggleStop(motif){
+  active.stops ||= [];
+  const o = openStop();
+  if (o) o.end = Date.now();
+  else {
+    const j = openJam(); if (j) { j.end = Date.now(); if (j.sigId) endSig(j.sigId, true); }
+    active.stops.push({start: Date.now(), end: null, motif: typeof motif === "string" ? motif : "", after: active.steps[active.stamps.length-1], before: active.steps[active.stamps.length]});
+  }
+  persistActive(); renderAll();
+}
+function renderStops(){
+  const box = $("stops"); box.innerHTML = "";
+  const list = active && active.dir === dir ? (active.stops || []) : [];
+  box.hidden = !list.length; if (!list.length) return;
+  const tot = list.reduce((a,x)=>a+((x.end||Date.now())-x.start),0);
+  const h = document.createElement("b"); h.textContent = `Arrêts · ${fmtDur(tot)}`; box.append(h);
+  list.forEach(x => { const d = document.createElement("div"); d.className = "j";
+    const a = document.createElement("span"); a.textContent = `${hhmm(new Date(x.start))} → ${x.end ? hhmm(new Date(x.end)) : "en cours"}${x.motif ? " · " + x.motif : ""} ${jamSpot(x)}`;
+    const b = document.createElement("span"); b.textContent = x.end ? fmtDur(x.end-x.start) : fmtClock(Date.now()-x.start);
+    d.append(a,b); box.append(d); });
+}
+function toggleJam(){
+  active.jams ||= [];
+  const o = openJam();
+  if (o) { o.end = Date.now(); if (o.sigId) endSig(o.sigId, true); }
+  else { const j = {start: Date.now(), end: null, after: active.steps[active.stamps.length-1], before: active.steps[active.stamps.length]};
+    if (S.shareJams !== false && !STANDALONE) sendSig("Embouteillage", `Entre « ${j.after} » et « ${j.before} »`, active.dir==="aller" ? "vers le travail" : "vers la maison").then(id => { if (id) { j.sigId = id; persistActive(); } });
+    active.jams.push(j); }
+  persistActive(); renderAll();
+}
+function jamSpot(j){ return j.after && j.before ? `entre « ${j.after} » et « ${j.before} »` : ""; }
+function renderJams(){
+  const box = $("jams"); box.innerHTML = "";
+  const list = active && active.dir === dir ? (active.jams || []) : [];
+  box.hidden = !list.length; if (!list.length) return;
+  const tot = list.reduce((a,j)=>a+((j.end||Date.now())-j.start),0);
+  const h = document.createElement("b"); h.textContent = `Embouteillages · ${fmtDur(tot)}`; box.append(h);
+  list.forEach(j => { const d = document.createElement("div"); d.className = "j";
+    const a = document.createElement("span"); a.textContent = `${hhmm(new Date(j.start))} → ${j.end ? hhmm(new Date(j.end)) : "en cours"} ${jamSpot(j)}`;
+    const b = document.createElement("span"); b.textContent = j.end ? fmtDur(j.end-j.start) : fmtClock(Date.now()-j.start);
+    d.append(a,b); box.append(d); });
+}
+
+function stamp(barge, mode, route, ts){ abandonAsk = false; if (barge) active.barge = barge; if (mode) active.mode = mode; if (route) active.route = route; const at = ts ?? Date.now(); active.stamps.push(at);
+  { const s0 = openStop(); if (s0) s0.end = Math.max(s0.start, at); }
+  if (active.stamps.length === active.steps.length) { const o = openJam(); if (o) o.end = Math.max(o.start, at); } persistActive(); if (active.stamps.length===active.steps.length) stopTick(); renderAll(); }
+function undo(){ manualIdx = null; if (active.stamps.length<=1){ active=null; stopTick(); } else { active.stamps.pop(); if (!active.stamps.some((_,k)=>isBarge(active.steps[k]))) delete active.barge; if (active.dir==="retour" && !active.stamps.some((_,k)=>isHome(active.steps[k]))) { delete active.mode; delete active.route; } startTick(); } persistActive(); renderAll(); }
+async function finish(){
+  const t = {dir: active.dir, start: active.stamps[0], end: active.stamps.at(-1), stamps: active.stamps, steps: active.steps, service: active.service || null, vac: !!active.vac, prevu: active.prevu || null, itin: active.itin || null, dep: active.dep || null, arr: active.arr || null, barge: active.barge || null, mode: active.mode || null, route: active.route || null, jams: (active.jams||[]).map(j=>({...j, end: j.end || active.stamps.at(-1)})), stops: (active.stops||[]).map(x=>({...x, end: x.end || active.stamps.at(-1)})), events: (active.events||[]).map(e=>({...e})), tags:[...tags], note: note.trim()};
+  const id = "t" + t.start, old = active.editId;
+  trips = trips.filter(x=>x.id!==id && x.id!==old).concat({...t,id});
+  active = null; persistActive(); stopTick(); renderAll();
+  await saveTrip(id, t);
+  // Correction : si l'heure de départ a changé, l'ancienne fiche est retirée une fois la nouvelle enregistrée
+  if (old && old !== id) { if (tripsCol) { try { await tripsCol.doc(old).delete(); } catch(e) {} } else ls.set("trajet.trips", trips); }
+}
+function persistActive(){ ls.set("trajet.active", active); }
+
+function startTick(){ stopTick(); updClock(); tick = setInterval(updClock, 1000);
+  try{ navigator.wakeLock?.request("screen").then(w=>{ wake=w; w.addEventListener?.("release", () => { if (wake === w) wake = null; }); }).catch(()=>{}); }catch(e){} }
+function stopTick(){ clearInterval(tick); tick=null; try{ wake?.release(); }catch(e){} wake=null; updClock(); }
+function updClock(){
+  if (!active || active.dir!==dir) { $("clock").textContent = "0:00"; $("vs").textContent = ""; return; }
+  const end = active.stamps.length===active.steps.length ? active.stamps.at(-1) : Date.now();
+  const el = end - active.stamps[0]; $("clock").textContent = fmtClock(el);
+  { const wl = $("waitLive"); if (wl) wl.textContent = (wl.dataset.kind === "taxi" ? taxiTxt : waitTxt)(+wl.dataset.since); }
+  if (openJam()) renderJams();
+  if (openStop()) renderStops();
+  const sm = stopMs(active, active.stamps[0], end);
+  const e = expected(dir).ms, eta = new Date(active.stamps[0] + e + sm);
+  $("vs").textContent = `arrivée prévue ${hhmm(eta)}` + (sm >= 60000 ? ` · dont ${fmtDur(sm)} d'arrêt` : "") + (dir==="aller" && active.service ? ` · service à ${active.service}` : "");
+}
+
+function renderStats(){
+  const a = durs(dir);
+  $("kN").textContent = tripsFor(dir).length;
+  $("kAvg").textContent = a.length ? fmtDur(avg(a)) : "–";
+  $("kP80").textContent = a.length >= 3 ? fmtDur(pct(a,.8)) : "–";
+  const box = $("bars"); box.innerHTML = "";
+  const st = steps(dir);
+  const ok = tripsFor(dir).slice(0,30).filter(t => t.stamps.length === t.steps.length);
+  const all = tripsFor(dir).slice(0,30);
+  if (!all.length) { box.innerHTML = `<p class="empty">Le détail par tronçon apparaîtra ici après ton premier trajet chronométré. Tu verras alors combien de temps te coûte chaque tronçon.</p>`; return; }
+  // Chaque tronçon est calculé sur les trajets qui l'ont (les anciens trajets avaient moins d'étapes)
+  const segs = st.slice(1).map((n,i) => { const v = ok.map(t => { const a = t.steps.indexOf(st[i]), b = t.steps.indexOf(n);
+      return a >= 0 && b === a+1 ? t.stamps[b]-t.stamps[a]-stopMs(t, t.stamps[a], t.stamps[b]) : null; }).filter(x => x != null);
+    return v.length ? {label:`${st[i]} → ${n}`, ms: avg(v)} : null; }).filter(Boolean);
+  const max = segs.length ? Math.max(...segs.map(s=>s.ms)) : 1;
+  segs.forEach(s => {
+    const r = document.createElement("div"); r.className = "bar" + (s.ms===max && segs.length>1 ? " slow":"");
+    r.innerHTML = `<span class="lbl"></span><span class="track"><span class="fill" style="width:${Math.max(4,s.ms/max*100)}%"></span></span><span class="v">${fmtDur(s.ms)}</span>`;
+    r.querySelector(".lbl").textContent = s.label; r.querySelector(".lbl").title = s.label; box.append(r);
+  });
+  const byB = {};
+  ok.forEach(t => { if (!t.barge) return; const i = t.steps.findIndex(isBarge); if (i<0||!t.stamps[i+1]) return;
+    (byB[t.barge] ||= []).push(t.stamps[i+1]-t.stamps[i]); });
+  const bk = Object.keys(byB);
+  if (bk.length) { const p=document.createElement("p"); p.className="empty";
+    p.textContent = "Traversée moyenne : " + bk.map(k=>`${k} ${fmtDur(avg(byB[k]))} (${byB[k].length}×)`).join(" · ") + "."; box.append(p); }
+  const ws = ok.map(t => ({t, w: quaiWait(t)})).filter(x => x.w != null);
+  if (ws.length) { const byW = {}; ws.forEach(x => { if (x.t.barge) (byW[x.t.barge] ||= []).push(x.w); });
+    const p=document.createElement("p"); p.className="empty";
+    p.textContent = `Attente au quai avant la barge : ${fmtDur(avg(ws.map(x=>x.w)))} en moyenne, jusqu'à ${fmtDur(Math.max(...ws.map(x=>x.w)))} (${ws.length}×)` + (Object.keys(byW).length > 1 ? " · " + Object.keys(byW).map(k=>`${k} ${fmtDur(avg(byW[k]))}`).join(" · ") : "") + ". Comptée dans tes temps de trajet."; box.append(p); }
+  const tw = ok.map(taxiWait).filter(x => x != null);
+  if (tw.length) { const p=document.createElement("p"); p.className="empty";
+    const byQ = {}; if (dir === "aller") ok.forEach(t => { const w = taxiWait(t); if (w != null && QUAI[t.barge]) (byQ[QUAI[t.barge]] ||= []).push(w); });
+    p.textContent = `Attente du taxi ${dir === "aller" ? "à la sortie de la barge (Dzaoudzi)" : "à la sortie du travail"} : ${fmtDur(avg(tw))} en moyenne, jusqu'à ${fmtDur(Math.max(...tw))} (${tw.length}×)`
+      + (Object.keys(byQ).length ? " · " + Object.keys(byQ).map(k => `${k} ${fmtDur(avg(byQ[k]))} (${byQ[k].length}×)`).join(" · ") : "") + ". Comptée dans tes temps de trajet."; box.append(p); }
+  const byM = {};
+  all.forEach(t => { if (!t.mode) return; const i = t.steps.findIndex(isHome); if (i<0) return;
+    const k = t.mode + (t.route ? " " + t.route.replace("Par le ","par le ") : "");
+    (byM[k] ||= []).push(t.end - t.stamps[i] - stopMs(t, t.stamps[i], t.end)); });
+  const vs = all.filter(isVac), sc = all.filter(t => !isVac(t));
+  if (vs.length && sc.length) { const p=document.createElement("p"); p.className="empty";
+    p.textContent = `Période scolaire ${fmtDur(avg(sc.map(drive)))} (${sc.length}×) · vacances scolaires ${fmtDur(avg(vs.map(drive)))} (${vs.length}×).`; box.append(p); }
+  const byR = {}; all.forEach(t => { const rr = t.itin || t.route; if (!rr) return; const k = (t.dir==="aller" && t.mode ? t.mode + " " : "") + rr.toLowerCase(); (byR[k] ||= []).push(drive(t)); });
+  const pv = all.filter(t => t.prevu);
+  if (pv.length) { const ec = avg(pv.map(t => drive(t) - t.prevu)), p = document.createElement("p"); p.className = "empty";
+    p.textContent = `Prévisions : sur ${pv.length} trajet(s), le réel dépasse le prévu de ${Math.round(ec/60000)} min en moyenne` + (Math.round(ec/60000) < 0 ? " (tu arrives plus tôt que prévu)." : "."); box.append(p); }
+  if (Object.keys(byR).length) { const p=document.createElement("p"); p.className="empty";
+    p.textContent = "Trajet complet : " + Object.keys(byR).map(k=>`${k} ${fmtDur(avg(byR[k]))} (${byR[k].length}×)`).join(" · ") + "."; box.append(p); }
+  const mk = Object.keys(byM);
+  if (mk.length) { const p=document.createElement("p"); p.className="empty";
+    p.textContent = "Mamoudzou → maison : " + mk.map(k=>`${k} ${fmtDur(avg(byM[k]))} (${byM[k].length}×)`).join(" · ") + "."; box.append(p); }
+  const withJ = ok.filter(t => (t.jams||[]).length);
+  if (withJ.length) { const tot = withJ.map(t => t.jams.reduce((a,j)=>a+(j.end-j.start),0));
+    const spots = {}; withJ.forEach(t=>t.jams.forEach(j=>{ const k=jamSpot(j); if(k) spots[k]=(spots[k]||0)+1; }));
+    const top = Object.entries(spots).sort((a,b)=>b[1]-a[1])[0];
+    const p=document.createElement("p"); p.className="empty";
+    p.textContent = `Embouteillages sur ${withJ.length} trajet(s) sur ${ok.length}, ${fmtDur(avg(tot))} perdues en moyenne` + (top ? `, surtout ${top[0]}.` : "."); box.append(p); }
+  const tagCount = {}; ok.forEach(t=>{ t.tags.forEach(g=>tagCount[g]=(tagCount[g]||0)+1); [...new Set((t.events||[]).map(e=>e.type))].forEach(g=>tagCount[g]=(tagCount[g]||0)+1); });
+  const top = Object.entries(tagCount).sort((a,b)=>b[1]-a[1])[0];
+  if (top) { const p=document.createElement("p"); p.className="empty"; p.textContent=`Évènement ou ralentissement le plus fréquent : ${top[0]} (${top[1]} trajet(s)).`; box.append(p); }
+}
+
+function renderHist(){
+  const ul = $("hist"); ul.innerHTML = "";
+  const list = tripsFor(dir).slice(0,20);
+  if (!list.length) { ul.innerHTML = `<li><span class="d empty">Aucun trajet enregistré dans ce sens. Appuie sur le bouton de départ dès que tu te mets en route.</span></li>`; return; }
+  list.forEach(t => {
+    const li = document.createElement("li"); const d = new Date(t.start);
+    const info = document.createElement("span"); info.className="d";
+    let txt = d.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"}) + " · départ " + hhmm(d);
+    if (t.service && t.dir==="aller") txt += ` · service ${t.service}, ${gap(t.end - atTime(t.start,t.service))}`;
+    if (t.service && t.dir==="retour") txt += ` · fin de service ${lab(t.service)}`;
+    info.textContent = txt;
+    const sm = document.createElement("small");
+    if (t.barge) { const b=document.createElement("span"); b.className="tag barge"; b.textContent=t.barge; sm.append(b); }
+    { const w = quaiWait(t); if (w != null) { const b=document.createElement("span"); b.className="tag"; b.textContent=`Attente quai ${fmtDur(w)}`; sm.append(b); } }
+    { const w = taxiWait(t); if (w != null) { const b=document.createElement("span"); b.className="tag"; b.textContent=`Attente taxi ${fmtDur(w)}`; sm.append(b); } }
+    (t.jams||[]).forEach(j => { const b=document.createElement("span"); b.className="tag jamt";
+      b.textContent=`Embouteillage ${hhmm(new Date(j.start))}–${hhmm(new Date(j.end))} (${fmtDur(j.end-j.start)})`; b.title = jamSpot(j); sm.append(b); });
+    (t.stops||[]).forEach(x => { const b=document.createElement("span"); b.className="tag stopt";
+      b.textContent=`Arrêt${x.motif ? " " + x.motif.toLowerCase() : ""} ${hhmm(new Date(x.start))}–${hhmm(new Date(x.end))} (${fmtDur(x.end-x.start)})`; b.title = jamSpot(x); sm.append(b); });
+    (t.events||[]).forEach(e => { const b=document.createElement("span"); b.className="tag jamt"; b.textContent=`${e.type} ${hhmm(new Date(e.at))}`; b.title = jamSpot(e); sm.append(b); });
+    if (isVac(t)) { const b=document.createElement("span"); b.className="tag"; b.textContent="Vacances scolaires"; sm.append(b); }
+    if (t.prevu) { const b=document.createElement("span"); b.className="tag"; b.textContent=`Prévu ${fmtDur(t.prevu)}, ${gap(drive(t) - t.prevu)}`; sm.append(b); }
+    if (t.itin || t.route) { const b=document.createElement("span"); b.className="tag barge"; b.textContent=t.itin || t.route; sm.append(b); }
+    if (t.mode) { const b=document.createElement("span"); b.className="tag barge"; b.textContent=t.mode; sm.append(b); }
+    t.tags.forEach(g=>{const s=document.createElement("span");s.className="tag";s.textContent=g;sm.append(s);});
+    t.steps.forEach((n,k)=>{ if(t.stamps[k] && (/taxi|bus/i.test(n) || isHome(n))) sm.append(document.createTextNode(`${isHome(n) ? (t.mode||"Départ") + " depuis Mamoudzou" : n.replace("Montée taxi","Taxi").replace("Montée bus","Bus")} ${hhmm(new Date(t.stamps[k]))} · `)); });
+    if (t.note) sm.append(document.createTextNode(" " + t.note)); info.append(sm);
+    const du = document.createElement("span"); du.className="dur"; du.textContent = fmtDur(drive(t));
+    if ((t.stops||[]).length) du.title = `Temps de route, sans les arrêts (${fmtDur(t.end-t.start)} au total)`;
+    const x = btn("✕","x"); x.setAttribute("aria-label","Supprimer ce trajet"); x.onclick=()=>{pendingDel=t.id; renderHist();};
+    const acts = document.createElement("span"); acts.style.display = "flex"; acts.style.gap = "2px";
+    if (t.stamps.length === t.steps.length) { const e = btn("✎","x"); e.setAttribute("aria-label","Corriger ce trajet"); e.title = "Corriger ce trajet"; e.onclick = () => editTrip(t); acts.append(e); }
+    acts.append(x);
+    li.append(info,du,acts);
+    if (pendingDel===t.id){ const c=document.createElement("div"); c.className="confirm"; c.textContent="Supprimer ce trajet ? ";
+      const y=btn("Supprimer",""); y.onclick=()=>delTrip(t.id); const n=btn("Garder",""); n.onclick=()=>{pendingDel=null;renderHist();}; c.append(y,n); li.append(c); }
+    ul.append(li);
+  });
+}
+
+function editTrip(t){
+  if (active) { status("Termine ou abandonne d'abord le trajet en cours."); return; }
+  active = {dir: t.dir, stamps: [...t.stamps], steps: [...t.steps], service: t.service || null, vac: isVac(t), prevu: t.prevu || null, itin: t.itin || null, dep: t.dep || null, arr: t.arr || null,
+    jams: (t.jams||[]).map(j => ({...j})), stops: (t.stops||[]).map(x => ({...x})), events: (t.events||[]).map(e => ({...e})), editId: t.id};
+  if (t.barge) active.barge = t.barge; if (t.mode) active.mode = t.mode; if (t.route) active.route = t.route;
+  tags = new Set(t.tags || []); note = t.note || ""; manualIdx = null; persistActive(); setDir(t.dir);
+  status("Corrige les heures avec ✎ puis enregistre."); $("hRoute").scrollIntoView({behavior: "smooth", block: "start"});
+}
+function dirSubTxt(){ const L = lieuxOf(dir);
+  $("dirSub").textContent = dir==="aller" ? "Maison → barge → taxi → travail" : "Sortie du travail → barge → retour à la maison"; }
+function setDir(d){
+  dir = d; $("dAller").setAttribute("aria-pressed", d==="aller"); $("dRetour").setAttribute("aria-pressed", d==="retour");
+  dirSubTxt();
+  $("hPlan").textContent = d==="aller" ? "Partir de la maison à" : "Arrivée à la maison vers";
+  ls.set("trajet.dir2", d); renderAll();
+}
+function refMsg(text, kind){ const m = $("refMsg"); m.hidden = !text; m.className = "refmsg" + (kind==="err" ? " err" : ""); m.textContent = "";
+  if (!text) return; if (kind === "wait") { const sp = document.createElement("span"); sp.className = "spin"; sp.setAttribute("aria-hidden","true"); m.append(sp); }
+  const t = document.createElement("span"); t.textContent = text; m.append(t); }
+function refPending(){ if (!lieux?.demandeLe) return false; const asked = Date.parse(lieux.demandeLe);
+  return (!reference || !sameLieux(reference) || Date.parse(reference.updatedAt) < asked) && Date.now() - asked < 30*60000; }
+function renderRef(){
+  if (refPending()) refMsg((estimation && sameLieux(estimation) ? "Estimation rapide affichée ci-dessous. " : "") + `Vérification sur Internet en cours pour ${lieux.depart} → ${lieux.arrivee} (lancée à ${hhmm(new Date(lieux.demandeLe))}), en général quelques minutes. Le résultat remplacera l'estimation automatiquement.`, "wait");
+  else if ($("refMsg").classList.contains("err") === false) refMsg("");
+  const box = $("refOut"); box.innerHTML = "";
+  const any = curRef("aller") || curRef("retour");
+  $("refBtn").hidden = STANDALONE || refLocked() || refPending() || !(any || refErr);
+  if (STANDALONE) { box.append(manualForm()); if (!any) { $("refIntro").hidden = false; return; } }
+  if (!any) { const p = document.createElement("p"); p.className = "empty";
+    p.textContent = "Jusqu'à trois itinéraires te seront proposés pour l'aller et pour le retour, avec la distance et la durée de chaque tronçon. Tu choisiras celui que tu prends."; box.append(p); $("refIntro").hidden = false; return; }
+  $("refIntro").hidden = true;
+  const st = document.createElement("p"); st.className = "refmsg"; st.style.margin = "0 0 4px";
+  st.hidden = STANDALONE; st.textContent = liveAt ? `Vérifié en direct à ${hhmm(new Date(liveAt))} · prochaine vérification dans 2 min (signalements en cours et infos route)` : "Vérification en direct toutes les 2 minutes tant que l'appli est ouverte.";
+  box.append(st);
+  (dir === "retour" ? ["retour", "aller"] : ["aller", "retour"]).forEach(d => box.append(refBlock(d)));
+}
+function refBlock(d){
+  const r = curRef(d), w = document.createElement("div"); w.className = "ref";
+  const h = document.createElement("p"); h.className = "vsum"; h.style.margin = "0";
+  if (!r) { h.textContent = d === "retour" ? "Retour : pas encore calculé" : "Aller : pas encore calculé"; w.append(h); return w; }
+  h.textContent = `${d === "retour" ? "Retour" : "Aller"} · ${r.depart} → ${r.arrivee}`; w.append(h);
+  const kind = document.createElement("span"); kind.className = "lvl " + (r.rapide ? "vigilance" : "normal"); kind.style.alignSelf = "flex-start";
+  kind.textContent = r.manuel ? "Saisi par toi" : r.rapide ? "Estimation rapide, sans Internet" : "Calculé en ligne"; w.append(kind);
+  const opts = refOptions(r), ch = chosenOpt(d), best = liveBest(d);
+  if (best && ch && best.o.nom !== ch.nom && (best.tot + 5 <= ch.min + liveMin(ch, d) || liveHits(ch, d).some(x => x.bloque))) {
+    const tip = document.createElement("p"); tip.className = "refmsg err"; tip.style.margin = "0";
+    tip.textContent = `En ce moment, « ${best.o.nom} » est plus sûr que ton itinéraire habituel (${fmtDur(best.tot*60000)} estimées).`; w.append(tip); }
+  if (opts.length > 1) { const q = document.createElement("p"); q.className = "empty"; q.style.margin = "0"; q.textContent = "Choisis l'itinéraire que tu prends d'habitude :"; w.append(q); }
+  const list = document.createElement("div"); list.className = "opts"; list.setAttribute("role", "radiogroup"); list.setAttribute("aria-label", `Itinéraires ${d === "retour" ? "du retour" : "de l'aller"}`);
+  opts.forEach(o => {
+    const sel = ch && o.nom === ch.nom, hits = liveHits(o, d), plus = liveMin(o, d);
+    const c = document.createElement("button"); c.type = "button"; c.className = "opt"; c.setAttribute("role", "radio"); c.setAttribute("aria-checked", sel);
+    const top = document.createElement("span"); top.className = "otop";
+    const nm = document.createElement("span"); nm.className = "onom"; nm.textContent = o.nom;
+    const mn = document.createElement("span"); mn.className = "num omin"; mn.textContent = fmtDur((o.min + plus)*60000);
+    top.append(nm, mn); c.append(top);
+    if (hits.length) { const lv = document.createElement("span"); lv.className = "oexp"; lv.style.background = "var(--ambre-soft)";
+      lv.textContent = (hits.some(x => x.bloque) ? "Route signalée bloquée : " : `+${plus} min en ce moment : `) + hits.map(x => `${x.type.toLowerCase()}${x.lieu ? " à " + x.lieu : ""}`).join(", ") + "."; c.append(lv); }
+    const meta = [o.km ? o.km + " km" : null, sel ? (o.resume || null) : null].filter(Boolean).join(" · ") || (sel ? "" : "Touche pour voir le détail");
+    if (meta) { const m = document.createElement("span"); m.className = "ometa"; m.textContent = meta; c.append(m); }
+    if (sel && o.explication) { const ex = document.createElement("span"); ex.className = "oexp"; ex.textContent = o.explication; c.append(ex); }
+    if (sel && (o.etapes||[]).length) { const ul = document.createElement("span"); ul.className = "oet";
+      o.etapes.forEach(e => { const li = document.createElement("span"); const l = document.createElement("span"); l.textContent = e.label;
+        const v = document.createElement("span"); v.textContent = [e.km ? e.km + " km" : null, e.min ? e.min + " min" : null].filter(Boolean).join(" · "); li.append(l, v); ul.append(li); });
+      c.append(ul); }
+    c.onclick = () => chooseOpt(o.nom, d);
+    list.append(c);
+  });
+  w.append(list);
+  if (r.notes) { const p = document.createElement("p"); p.className = "empty"; p.style.margin = "0"; p.textContent = r.notes; w.append(p); }
+  if (r.manuel) { const del = btn(`Effacer les itinéraires ${d === "retour" ? "du retour" : "de l'aller"}`, "btn ghost"); del.onclick = async () => { try { await db.doc(`data/users/${uid}/${d === "retour" ? "referenceRetour" : "reference"}`).delete(); status("Itinéraires effacés."); } catch(e) {} }; w.append(del); }
+  const f = document.createElement("p"); f.className = "empty"; f.style.margin = "0";
+  f.textContent = (r.manuel ? "Saisi " : r.rapide ? "Estimé " : "Calculé ") + `${new Date(r.updatedAt).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}.`;
+  w.append(f);
+  return w;
+}
+// Saisie à la main d'un itinéraire (version autonome) : nom, durée, villages traversés
+let mOpen = false;
+function manualForm(){
+  const w = document.createElement("details"); w.className = "sigform"; w.open = mOpen; w.ontoggle = () => { mOpen = w.open; };
+  const sum = document.createElement("summary"); sum.className = "btn ghost"; sum.textContent = "Ajouter un itinéraire"; w.append(sum);
+  const g = document.createElement("div"); g.className = "set";
+  const f = (id, lab, type, ph) => { const l = document.createElement("label"); l.textContent = lab; const i = document.createElement("input"); i.id = id; i.type = type; i.placeholder = ph || ""; i.autocomplete = "off"; if (type === "number") { i.min = 1; i.max = 599; i.inputMode = "numeric"; } l.append(i); g.append(l); return i; };
+  f("mNom", "Nom de l'itinéraire", "text", "ex. Par Kawéni"); f("mMin", "Durée porte à porte, sans embouteillage (minutes)", "number", "ex. 45");
+  f("mKm", "Distance en km (facultatif)", "number", ""); f("mVia", "Villages traversés, dans l'ordre de l'aller, séparés par des virgules (facultatif)", "text", "ex. Kawéni, Koungou, Longoni");
+  const ok = btn("Enregistrer l'itinéraire (aller et retour)", "btn"); ok.onclick = saveManual; g.append(ok);
+  const h = document.createElement("p"); h.className = "empty"; h.id = "mHelp"; h.style.margin = "0"; h.textContent = "Jusqu'à 3 itinéraires par sens. La durée sert à calculer ton heure de départ."; g.append(h);
+  w.append(g); return w;
+}
+async function saveManual(){
+  const nom = $("mNom").value.trim().slice(0, 80), min = Math.round(+$("mMin").value), km = +$("mKm").value || null, via = $("mVia").value.split(",").map(x => x.trim()).filter(Boolean).slice(0, 5);
+  if (!lieux?.depart || !lieux?.arrivee) { $("mHelp").textContent = "Indique d'abord ton départ et ton arrivée."; return; }
+  if (!nom || !(min > 0 && min < 600)) { $("mHelp").textContent = "Donne un nom et une durée en minutes."; return; }
+  const mk = (a, z, pts) => { const all = [a, ...pts, z]; return {nom, resume: pts.length ? "Par " + pts.join(", ") : "", explication: "", km, min, etapes: all.slice(1).map((p, i) => ({label: `${all[i]} → ${p}`, km: null, min: null}))}; };
+  try {
+    for (const [n, a, z, pts, cur] of [["reference", lieux.depart, lieux.arrivee, via, reference], ["referenceRetour", lieux.arrivee, lieux.depart, [...via].reverse(), referenceR]]) {
+      const keep = cur && cur.manuel && cur.depart === a && cur.arrivee === z ? cur.options.filter(o => o.nom !== nom) : [];
+      const options = [...keep, mk(a, z, pts)].slice(-3).sort((x, y) => x.min - y.min);
+      await db.doc(`data/users/${uid}/${n}`).set({depart: a, arrivee: z, manuel: true, updatedAt: new Date().toISOString(), options, notes: ""});
+    }
+    mOpen = false; status(`Itinéraire « ${nom} » enregistré pour l'aller et le retour.`); renderAll();
+  } catch(e) { $("mHelp").textContent = "Enregistrement impossible, réessaie."; }
+}
+async function chooseOpt(nom, d = dir){
+  if (!lieux) lieux = {depart: $("lieuDep").value.trim(), arrivee: $("lieuArr").value.trim()};
+  lieux = {...lieux, [d === "retour" ? "choixR" : "choix"]: nom}; renderAll();
+  if (lieuxRef) { try { await lieuxRef.set({...lieux}); } catch(e) { status("Le choix n'a pas pu être enregistré, réessaie."); } }
+}
+async function launchRef(){
+  const dep = $("lieuDep").value.trim(), arr = $("lieuArr").value.trim(), b = $("refBtn");
+  if (!dep || !arr) { refMsg("Indique le village de départ et le lieu d'arrivée.", "err"); $(dep ? "lieuArr" : "lieuDep").focus(); return; }
+  if (!db || !lieuxRef) { refMsg("Le carnet en ligne n'est pas encore connecté. Patiente quelques secondes ou recharge la page.", "err"); return; }
+  if (lieux && lieux.depart === dep && lieux.arrivee === arr && lieux.demandeLe && Date.now() - Date.parse(lieux.demandeLe) < 60000) { status("Calcul déjà lancé il y a moins d'une minute."); return; }
+  if (STANDALONE) {
+    const changed = !lieux || lieux.depart !== dep || lieux.arrivee !== arr;
+    try { lieux = {...(changed ? {} : lieux), depart: dep, arrivee: arr, demandeLe: null}; await lieuxRef.set(lieux);
+      if (changed) for (const n of ["reference", "referenceRetour"]) { try { await db.doc(`data/users/${uid}/${n}`).delete(); } catch(e) {} } } catch(e) {}
+    refMsg(""); status("Lieux enregistrés. Ajoute tes itinéraires juste en dessous."); renderAll(); return; }
+  refMsg("Envoi de la demande…", "wait");
+  b.disabled = true; refErr = false;
+  try {
+    lieux = {depart: dep, arrivee: arr, demandeLe: canCloud ? new Date().toISOString() : null};
+    await lieuxRef.set(lieux);
+    renderRef();
+    quickEstimate(dep, arr, "aller"); quickEstimate(arr, dep, "retour");
+    if (!canCloud) { b.disabled = false; refMsg(""); status("Lieux enregistrés pour toi seul. Estimation rapide en cours ; le calcul détaillé en ligne est réservé au propriétaire de l'appli."); renderRef(); return; }
+    const mcp = await window.claude?.use?.("mcp");
+    if (!mcp) throw {code: "unavailable"};
+    await mcp.callTool("Claude Code Remote", "fire_trigger", {trigger_id: REF_TASK, text: `Calcule les trajets aller (${dep} → ${arr}) et retour (${arr} → ${dep}).`}, {cache: false});
+    renderRef();
+  } catch (e) {
+    if (lieux) lieux = {...lieux, demandeLe: null}; refErr = true;
+    refMsg(e?.code === "not_granted" || e?.code === "denied" ? "L'autorisation de lancer la tâche de calcul a été refusée. Accepte-la pour utiliser ce bouton." : "Le calcul n'a pas pu être lancé d'ici. Tes lieux sont enregistrés : demande-moi dans la conversation de lancer le calcul.", "err");
+  }
+  b.disabled = false; renderRef();
+}
+async function quickEstimate(dep, arr, sens = "aller"){
+  const retour = sens === "retour";
+  const sample = await window.claude?.use?.("sample");
+  if (!sample || !db) return;
+  const prompt = `Propose les 3 itinéraires routiers les plus courants à Mayotte entre « ${dep} » (départ, ${retour ? "travail" : "domicile"}) et « ${arr} » (arrivée, ${retour ? "domicile" : "travail"}), dans ce sens, hors embouteillages.
+Si l'un des deux lieux est sur Petite-Terre (Pamandzi, Dzaoudzi, Labattoir, aéroport) et l'autre sur Grande-Terre, chaque itinéraire passe par la barge entre les quais de Mamoudzou et de Dzaoudzi, avec un taxi entre le quai de Dzaoudzi et le lieu de Petite-Terre ; les itinéraires diffèrent alors par la route suivie sur Grande-Terre (par exemple par le nord, par le sud, par l'intérieur). Sinon, seulement la route. Donne les tronçons dans l'ordre du trajet.
+Utilise ta connaissance de la géographie de Mayotte, sois prudent et arrondis. Si un lieu t'est inconnu, réponds avec options vide et explique-le dans notes. Moins de 3 itinéraires réalistes : n'en invente pas.
+Réponds uniquement avec ce JSON :
+{"options":[{"nom":"nom court de l'itinéraire, ex. Par le nord via ...","resume":"routes ou villages traversés, une phrase courte","explication":"1 à 2 phrases propres à CET itinéraire : avantages, inconvénients, quand le préférer","km":number|null,"min":number,"etapes":[{"label":"tronçon","km":number|null,"min":number|null}]}],"notes":"1 phrase de remarque commune à tous les itinéraires, ou chaîne vide"}
+min = durée porte à porte en minutes.`;
+  try {
+    const j = await sample.json(prompt, {modelTier: "default", cache: false});
+    const num = v => typeof v === "number" && isFinite(v) && v >= 0 && v < 600 ? Math.round(v) : null;
+    const options = (Array.isArray(j?.options) ? j.options : []).slice(0,3).map(o => ({
+      nom: String(o?.nom || "Itinéraire").slice(0,80), resume: String(o?.resume || "").slice(0,160), explication: String(o?.explication || "").slice(0,300), km: num(o?.km), min: num(o?.min),
+      etapes: (Array.isArray(o?.etapes) ? o.etapes : []).slice(0,6).map(e => ({label: String(e?.label || "").slice(0,80), km: num(e?.km), min: num(e?.min)}))
+    })).filter(o => o.min);
+    const clean = {depart: dep, arrivee: arr, rapide: true, updatedAt: new Date().toISOString(), options, notes: String(j?.notes || "").slice(0, 400)};
+    if (retour) estimationR = clean; else estimation = clean; renderAll();
+    await db.doc(`data/users/${uid}/${retour ? "estimationRetour" : "estimation"}`).set(clean);
+  } catch (e) { /* l'estimation rapide est un bonus : la vérification Internet continue */ }
+}
+const VEILLE_TASK = "trig_01SyrvhQszWaueCWgxcjc9fA";
+// ---- signalements partagés
+const sigActive = x => !x.endedAt && Date.now() - x.at < SIG_TTL;
+function ago(ms){ const m = Math.round((Date.now()-ms)/60000); return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : `il y a ${Math.floor(m/60)} h ${String(m%60).padStart(2,"0")}`; }
+function renderSigForm(){
+  const box = $("sigTypes"); box.innerHTML = "";
+  SIG_TYPES.forEach(t => { const c = btn(t, "chip"); c.setAttribute("role","radio"); c.setAttribute("aria-checked", sigType===t); c.setAttribute("aria-pressed", sigType===t);
+    c.onclick = () => { sigType = t; renderSigForm(); }; box.append(c); });
+  const dl = $("placesList"); if (!dl.children.length) PLACES.forEach(p => { const o = document.createElement("option"); o.value = p; dl.append(o); });
+}
+function renderSigs(){
+  const list = sigs.filter(sigActive).sort((a,b) => b.at - a.at), ul = $("sigList"); ul.innerHTML = "";
+  $("sigCount").textContent = list.length ? `${list.length} en cours` : "aucun en cours";
+  $("sigCount").className = "lvl " + (list.length ? "vigilance" : "none");
+  if (!sigCol) { ul.innerHTML = `<li style="background:var(--bg)"><span class="sm">Les signalements partagés ont besoin du carnet en ligne.</span></li>`; }
+  else if (!list.length) { const li = document.createElement("li"); li.style.background = "var(--bg)";
+    const t = document.createElement("span"); t.className = "sm"; t.textContent = "Rien de signalé ces 2 dernières heures. Si tu vois un embouteillage, un accident ou une barge à l'arrêt, préviens les autres en un appui."; li.append(t); ul.append(li); }
+  list.forEach(x => {
+    const li = document.createElement("li"); if (x.by === uid) li.className = "mine";
+    const st = document.createElement("span"); st.className = "st"; const b = document.createElement("b"); b.textContent = `${x.type} · ${x.lieu}`;
+    const sm = document.createElement("small"); sm.textContent = ago(x.at); st.append(b, sm); li.append(st);
+    const conf = Object.keys(x.confirms || {}).length;
+    const meta = [x.detail, x.sens, x.by === uid ? "signalé par toi" : null, conf ? `confirmé par ${conf} personne${conf>1?"s":""}` : null].filter(Boolean).join(" · ");
+    if (meta) { const m = document.createElement("span"); m.className = "sm"; m.textContent = meta; li.append(m); }
+    const acts = document.createElement("span"); acts.className = "acts";
+    if (x.by !== uid && !(x.confirms||{})[uid]) { const c = btn("C'est toujours le cas", ""); c.onclick = () => confirmSig(x.id); acts.append(c); }
+    const e = btn("C'est terminé", ""); e.onclick = () => endSig(x.id); acts.append(e);
+    li.append(acts); ul.append(li);
+  });
+}
+async function sendSig(type, lieu, sens){
+  if (!sigCol) { status("Le signalement a besoin du carnet en ligne."); return null; }
+  const ref = sigCol.doc(); const doc = {type, lieu, detail: "", sens: sens || "", at: Date.now(), by: uid, confirms: {}};
+  try { await ref.set(doc); sigSeen.add(ref.id); return ref.id; } catch(e) { status("Le signalement n'a pas pu être envoyé. Réessaie."); return null; }
+}
+async function submitSig(){
+  const lieu = $("sigLieu").value.trim(), det = $("sigDet").value.trim();
+  if (!sigType) { $("sigHelp").textContent = "Choisis d'abord le type d'évènement."; return; }
+  if (!lieu) { $("sigHelp").textContent = "Indique où ça se passe."; $("sigLieu").focus(); return; }
+  if (!sigCol) { $("sigHelp").textContent = "Le carnet en ligne n'est pas connecté : recharge la page."; return; }
+  $("sigSend").disabled = true;
+  const ref = sigCol.doc();
+  try {
+    await ref.set({type: sigType, lieu: lieu.slice(0,80), detail: det.slice(0,140), sens: active ? (active.dir==="aller" ? "vers le travail" : "vers la maison") : "", at: Date.now(), by: uid, confirms: {}});
+    sigSeen.add(ref.id); sigType = null; $("sigLieu").value = ""; $("sigDet").value = ""; $("sigForm").open = false;
+    $("sigHelp").textContent = "Visible tout de suite par tous les utilisateurs de l'appli, pendant 2 heures."; renderSigForm(); status("Signalement envoyé à tous les utilisateurs.");
+  } catch(e) { $("sigHelp").textContent = e?.code === "invalid_argument" ? "Ton accès à l'appli ne permet pas d'envoyer de signalement." : "Envoi impossible pour l'instant, réessaie."; }
+  $("sigSend").disabled = false;
+}
+async function confirmSig(id){ try { await sigCol.doc(id).update({confirms: {[uid]: Date.now()}}); } catch(e) { status("Confirmation impossible pour l'instant."); } }
+async function endSig(id, silent){ try { await sigCol.doc(id).update({endedAt: Date.now(), endedBy: uid}); } catch(e) { if (!silent) status("Impossible de clore ce signalement pour l'instant."); } }
+let toastT = null;
+function toast(x){
+  const t = $("toast"); t.innerHTML = ""; const d = document.createElement("div");
+  const b = document.createElement("b"); b.textContent = `Nouveau signalement : ${x.type}`; const p = document.createElement("span"); p.textContent = `${x.lieu}${x.detail ? " · " + x.detail : ""}`;
+  d.append(b, p); const c = btn("✕", ""); c.setAttribute("aria-label", "Fermer"); c.onclick = () => { t.hidden = true; };
+  t.append(d, c); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 15000);
+  try { navigator.vibrate?.([120, 60, 120]); } catch(e) {}
+  document.title = "• Trajet Maison–Aéroport";
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { document.title = "Trajet Maison–Aéroport";
+  if (tick && !wake) { try { navigator.wakeLock?.request("screen").then(w => wake = w).catch(() => {}); } catch(e) {} } } });
+function renderVac(){ const v = vacOf(Date.now()), b = $("vacBadge"); b.hidden = !v;
+  if (v) { const end = new Date(v[2] + "T12:00:00"); end.setDate(end.getDate()-1);
+    b.textContent = `Vacances ${v[0]} jusqu'au ${end.toLocaleDateString("fr-FR",{day:"numeric",month:"long"})} · routes plus calmes`; }
+  else if (isoDay(Date.now()) >= VACANCES.at(-1)[2]) { b.hidden = false; b.textContent = "Calendrier des vacances à mettre à jour"; } }
+function renderAll(){ dirSubTxt(); renderVac(); renderSigs(); renderRef(); renderPlan(); renderRoute(); renderStats(); renderHist(); updClock(); }
+
+function fillSettings(){ fillSvc(); $("sMargin").value = S.margin; $("sShare").checked = S.shareJams !== false; }
+
+// ---- stockage
+async function saveTrip(id,t){
+  if (tripsCol) { try { await tripsCol.doc(id).set(t); status("Trajet enregistré dans ton carnet."); } catch(e){ status("Le trajet n'a pas pu être enregistré en ligne : il est gardé sur cet appareil et sera renvoyé à la prochaine ouverture.");
+      pendingLocal = (ls.get("trajet.trips") || []).filter(x => x.id !== id).concat({...t, id}); ls.set("trajet.trips", pendingLocal); } }
+  else { ls.set("trajet.trips", trips); status("Trajet enregistré sur cet appareil."); }
+}
+async function delTrip(id){
+  pendingDel=null; trips = trips.filter(t=>t.id!==id); renderAll();
+  if (pendingLocal.some(t => t.id === id)) { pendingLocal = pendingLocal.filter(t => t.id !== id); ls.set("trajet.trips", pendingLocal); }
+  if (tripsCol) { try{ await tripsCol.doc(id).delete(); }catch(e){ status("Suppression impossible pour l'instant, réessaie."); } }
+  else ls.set("trajet.trips", trips);
+}
+function csvExport(){
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`, mn = ms => Math.round(ms/60000);
+  const rows = [["date","sens","lieu_depart","lieu_arrivee","heure_depart","heure_arrivee","route_min","total_min","prevu_min","itineraire","moyen","barge","service","vacances","embouteillages_min","arrets_min","evenements","etapes","ralentissements","note"]];
+  [...trips].sort((a,b) => a.start - b.start).forEach(t => rows.push([isoDay(t.start), t.dir, t.dep || "", t.arr || "", hhmm(new Date(t.start)), hhmm(new Date(t.end)), mn(drive(t)), mn(t.end - t.start), t.prevu ? mn(t.prevu) : "", t.itin || t.route || "", t.mode || "", t.barge || "", t.service || "", isVac(t) ? "oui" : "non",
+    mn((t.jams||[]).reduce((a,j) => a + (j.end - j.start), 0)), mn(stopMs(t, t.start, t.end)), (t.events||[]).map(e => `${e.type} ${hhmm(new Date(e.at))}`).join(" | "), (t.steps||[]).map((n,k) => t.stamps[k] ? `${n} ${hhmm(new Date(t.stamps[k]))}` : null).filter(Boolean).join(" | "), (t.tags||[]).join(" | "), t.note || ""]));
+  const csv = rows.map(r => r.map(q).join(";")).join("\r\n");
+  const out = $("exportOut"); out.value = csv; out.hidden = false; out.style.minHeight = "120px";
+  out.focus(); out.select();
+  const done = ok => status(ok ? `${trips.length} trajet(s) copié(s) : colle le texte dans un fichier .csv ou un tableur.` : `${trips.length} trajet(s) prêts : copie le texte affiché et colle-le dans un fichier .csv ou un tableur.`);
+  try { navigator.clipboard.writeText(csv).then(() => done(true), () => done(false)); } catch(e) { done(false); }
+}
+$("exportBtn").onclick = csvExport;
+$("sMargin").addEventListener("change", e => { S.margin = Math.max(0, Math.min(120, Math.round(+e.target.value || 0))); e.target.value = S.margin; renderAll(); persistSettings(); status(`Marge de ${S.margin} min enregistrée.`); });
+$("sShare").addEventListener("change", e => { S.shareJams = e.target.checked; persistSettings(); renderActions(); status(S.shareJams ? "Tes embouteillages seront partagés." : "Tes embouteillages ne seront plus partagés."); });
+async function persistSettings(){
+  if (setRef) { try{ await setRef.set(S); }catch(e){ ls.set("trajet.settings", S); } } else ls.set("trajet.settings", S);
+}
+let tTimer=null;
+function fillSvc(){ $("svcA").value = svc("aller"); $("svcR").value = svc("retour"); $("fixed").checked = !!S.fixed; }
+function readSvc(){
+  const a = $("svcA").value, r = $("svcR").value;
+  if (S.fixed) { S.tA = a; S.tR = r; } else S.day = {date: dayKey(), tA: a, tR: r};
+  if (active && !active.service) { active.service = (active.dir==="aller" ? a : r) || null; persistActive(); }
+  renderAll(); clearTimeout(tTimer); tTimer = setTimeout(persistSettings, 600);
+}
+$("svcA").addEventListener("change", readSvc);
+$("svcR").addEventListener("change", readSvc);
+$("fixed").addEventListener("change", e => { S.fixed = e.target.checked; readSvc();
+  status(S.fixed ? "Horaires fixes : ils seront pré-remplis chaque jour." : "Horaires variables : à renseigner chaque jour."); });
+function status(m){ $("status").textContent = m; }
+
+$("dAller").onclick = () => setDir("aller");
+$("dRetour").onclick = () => setDir("retour");
+
+$("adviceBtn").onclick = askAdvice;
+$("sigSend").onclick = submitSig;
+renderSigForm();
+setInterval(renderSigs, 60000);
+$("refBtn").onclick = () => launchRef();
+// Calcul automatique : dès que les deux lieux sont remplis (pause de frappe, sortie du champ ou Entrée).
+let refTimer = null;
+const refChanged = () => { const d = $("lieuDep").value.trim(), a = $("lieuArr").value.trim();
+  return d.length >= 2 && a.length >= 2 && (!refBase() || refBase().depart !== d || refBase().arrivee !== a); };
+const autoRef = (force) => { clearTimeout(refTimer); if (refLocked()) return;
+  const d = $("lieuDep").value.trim(), a = $("lieuArr").value.trim(); if (d.length < 2 || a.length < 2) return;
+  if (force || refChanged()) launchRef(); };
+["lieuDep","lieuArr"].forEach(id => {
+  $(id).addEventListener("change", () => autoRef(false)); });
+$("lieuDep").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("lieuArr").focus(); } });
+$("lieuArr").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); autoRef(false); } });
+// ---- accueil : le trajet est demandé dès l'ouverture tant qu'il n'est pas enregistré
+let welcomeAsked = false, wTimer = null;
+function openWelcome(){ const w = $("welcome"); if (welcomeAsked || refLocked() || w.open) return; welcomeAsked = true;
+  $("wDep").value = $("lieuDep").value; $("wArr").value = $("lieuArr").value;
+  try { w.showModal(); } catch(e) { w.setAttribute("open", ""); }
+  setTimeout(() => $($("wDep").value ? "wArr" : "wDep").focus(), 60); }
+function closeWelcome(){ const w = $("welcome"); if (!w.open) return; try { w.close(); } catch(e) { w.removeAttribute("open"); } }
+function welcomeGo(){ clearTimeout(wTimer); const a = $("wDep").value.trim(), b = $("wArr").value.trim(); if (a.length < 2 || b.length < 2) return;
+  $("lieuDep").value = a; $("lieuArr").value = b; closeWelcome(); autoRef(false); }
+["wDep","wArr"].forEach(id => {
+  $(id).addEventListener("input", () => { clearTimeout(wTimer); wTimer = setTimeout(welcomeGo, 2500); });
+  $(id).addEventListener("change", welcomeGo); });
+$("wDep").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("wArr").focus(); } });
+$("wArr").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); welcomeGo(); } });
+$("wLater").onclick = closeWelcome;
+
+if (STANDALONE) {
+  ["veille", "signal"].forEach(id => { $(id).hidden = true; }); $("adviceBtn").hidden = true; $("sShare").closest("label").hidden = true;
+  $("refIntro").textContent = "Indique où tu pars et où tu arrives, puis ajoute tes itinéraires avec leur durée. Tout reste sur ce téléphone.";
+  $("welcome").querySelector("p").textContent = "Indique d'où tu pars et où tu travailles. Tu ajouteras ensuite tes itinéraires avec leur durée.";
+}
+// ---- démarrage : rendu immédiat depuis l'appareil, puis carnet en ligne
+S = {...DEF, ...(ls.get("trajet.settings")||{})};
+if (!S.fixed) { S.tA = ""; S.tR = ""; }
+trips = ls.get("trajet.trips") || [];
+active = ls.get("trajet.active");
+dir = ls.get("trajet.dir2") || "retour";
+if (active && !active.service) active.service = svc(active.dir) || null;
+fillSettings(); setDir(dir);
+if (active && active.stamps.length < active.steps.length) startTick();
+
+(async () => {
+  try {
+    db = await window.claude?.use?.("db");
+    const user = db ? await window.claude.use("user") : null;
+    me = user; uid = user ? await user.id() : null;
+  } catch(e) { db = null; }
+  try { canCloud = !!(me && await me.canEdit()); } catch(e) { canCloud = false; }
+  if (!db || !uid) { status("Carnet en ligne indisponible : tes trajets restent sur cet appareil."); return; }
+  const base = db.doc(`data/users/${uid}/carnet`);
+  tripsCol = base.collection("trips");
+  setRef = db.doc(`data/users/${uid}/reglages`);
+  const priv = n => db.doc(`data/users/${uid}/${n}`); lieuxRef = priv("lieux");
+  try {
+    const s = await setRef.get();
+    if (s.exists) { S = {...DEF, ...s.data()}; if (!S.fixed) { S.tA = ""; S.tR = ""; } fillSettings(); renderAll(); }
+  } catch(e){}
+  // rapatrie les trajets gardés hors ligne
+  // On ne retire de l'appareil que les trajets dont l'envoi a réussi
+  const local = ls.get("trajet.trips") || [], failed = [];
+  for (const t of local) { try{ const {id,...b}=t; await tripsCol.doc(id).set(b); }catch(e){ failed.push(t); } }
+  if (local.length) ls.set("trajet.trips", failed);
+  pendingLocal = failed;
+  priv("estimation").onSnapshot(d => { estimation = d.exists ? d.data() : null; renderAll(); }, () => {});
+  priv("reference").onSnapshot(d => { reference = d.exists ? d.data() : null; renderAll(); }, () => {});
+  priv("estimationRetour").onSnapshot(d => { estimationR = d.exists ? d.data() : null; renderAll(); }, () => {});
+  priv("referenceRetour").onSnapshot(d => { referenceR = d.exists ? d.data() : null; renderAll(); }, () => {});
+  lieuxRef.onSnapshot(d => { if (d.exists) { lieux = {...d.data()}; if (!$("lieuDep").value) $("lieuDep").value = lieux.depart || ""; if (!$("lieuArr").value) $("lieuArr").value = lieux.arrivee || ""; closeWelcome(); renderRef(); }
+    else setTimeout(() => { if (!lieux) openWelcome(); }, 800); }, () => {});
+  setInterval(() => { if (refPending()) renderRef(); }, 30000);
+  sigCol = db.collection("signalements");
+  sigCol.orderBy("at","desc").limit(60).onSnapshot(snap => {
+    sigs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    if (sigBooted) snap.docChanges().forEach(ch => { const x = {id: ch.doc.id, ...ch.doc.data()};
+      if (ch.type === "added" && x.by !== uid && !sigSeen.has(x.id) && sigActive(x)) toast(x); sigSeen.add(x.id); });
+    else sigs.forEach(x => sigSeen.add(x.id));
+    sigBooted = true; renderSigs(); renderRef(); renderPlan();
+  }, () => {});
+  // Infos route et barge : synchronisées en direct, réaffichées toutes les 30 secondes ; la veille Internet ne tourne qu'à la demande.
+  let veilleFirst = true;
+  db.doc("veille/route").onSnapshot(d => { veille = d.exists ? d.data() : null; renderPlan();
+    veilleFirst = false; }, () => {});
+  setInterval(renderPlan, 30000);
+  // Sur téléphone, la connexion en direct se coupe quand l'appli passe en arrière-plan :
+  // on relit la veille, les signalements et les lieux au retour, et toutes les 5 minutes.
+  let lastSync = 0;
+  resync = async (manual) => { if (!manual && Date.now() - lastSync < 20000) return; lastSync = Date.now();
+    try { const d = await db.doc("veille/route").get(); veille = d.exists ? d.data() : null; } catch(e) {}
+    try { const s = await sigCol.orderBy("at","desc").limit(60).get(); sigs = s.docs.map(x => ({id: x.id, ...x.data()})); sigs.forEach(x => sigSeen.add(x.id)); } catch(e) {}
+    try { const l = await lieuxRef.get(); if (l.exists) lieux = {...l.data()}; } catch(e) {}
+    liveAt = Date.now(); renderAll(); if (manual) status("Infos actualisées."); };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) resync(); });
+  window.addEventListener("focus", () => resync()); window.addEventListener("pageshow", () => resync()); window.addEventListener("online", () => resync());
+  setInterval(() => { if (!document.hidden) resync(); }, LIVE_MS);
+  setTimeout(() => resync(), 4000);
+  tripsCol.orderBy("start","desc").limit(300).onSnapshot(snap => {
+    trips = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    pendingLocal.forEach(t => { if (!trips.some(x => x.id === t.id)) trips.push(t); }); renderAll();
+    status(STANDALONE ? "Trajets enregistrés sur cet appareil. Pense à les exporter de temps en temps." : "Carnet synchronisé · visible depuis ton téléphone et ton ordinateur.");
+  }, () => status("Synchronisation interrompue : recharge la page."));
+})();
+})();
+</script>

@@ -1,0 +1,6 @@
+{
+  "appId": "yt.trajet.maisontravail",
+  "appName": "Trajet",
+  "webDir": "www",
+  "ios": { "contentInset": "never", "scrollEnabled": true }
+}
