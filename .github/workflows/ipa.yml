@@ -1,0 +1,59 @@
+name: Fabriquer l'appli iPhone (.ipa)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Assembler la page de l'appli
+        run: python3 outils/construire.py
+
+      - name: Créer le projet iOS (Capacitor)
+        run: |
+          npm install
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Compiler sans signature
+        run: |
+          cd ios/App
+          if [ -d App.xcworkspace ]; then CIBLE="-workspace App.xcworkspace"; else CIBLE="-project App.xcodeproj"; fi
+          xcodebuild $CIBLE -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -40
+          test -d build/Build/Products/Release-iphoneos/App.app
+
+      - name: Emballer en .ipa
+        run: |
+          cd ios/App
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry "$GITHUB_WORKSPACE/Trajet.ipa" Payload
+          ls -lh "$GITHUB_WORKSPACE/Trajet.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Trajet-ipa
+          path: Trajet.ipa
+
+      - name: Publier dans les Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ github.run_number }}" Trajet.ipa \
+            --title "Trajet, fabrication ${{ github.run_number }}" \
+            --notes "Fichier Trajet.ipa non signé, à installer sur iPhone avec Sideloadly."
