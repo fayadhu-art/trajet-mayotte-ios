@@ -8,7 +8,7 @@ let pushState = "unknown", myPos = null, watchId = null;
 const DEF = {
   stepsA: ["Départ maison", "Arrivée à Mamoudzou", "Départ de la barge Mamoudzou", "Arrivée barge Dzaoudzi", "Montée dans le taxi", "Descente du taxi", "Arrivée au travail"],
   stepsR: ["Fin de service, sortie du travail", "Montée dans le taxi", "Descente du taxi", "Départ de la barge Dzaoudzi", "Arrivée barge Mamoudzou", "Départ de Mamoudzou", "Arrivée maison"],
-  estA: 75, estR: 75, margin: 10, avantBarge: 90, plusScolaire: 10, apresBarge: 45, tA: "", tR: "", fixed: false, day: null
+  estA: 75, estR: 75, margin: 10, avantBarge: null, plusScolaire: null, apresBarge: null, tA: "", tR: "", fixed: false, day: null
 };
 const BARGES = ["Amphidrome", "Barge normale"];
 const MODES = ["Taxi", "Voiture", "Bus"];
@@ -19,16 +19,41 @@ const HORAIRES = (() => { const a = [];
   return a.sort((x, y) => x.m - y.m); })();
 const hm = m => `${Math.floor(m/60)} h ${String(m%60).padStart(2, "0")}`;
 const dureeMin = m => m >= 60 ? `${Math.floor(m/60)} h${m%60 ? " " + String(m%60).padStart(2, "0") : ""}` : `${m} min`;
+// Durées propres à chaque utilisateur, tirées de son itinéraire de référence (OpenStreetMap, sans circulation) :
+// route jusqu'au quai, traversée, puis trajet du quai d'arrivée au travail.
+function bargeLegs(){
+  const o = chosenOpt("aller"), et = o?.etapes || [];
+  const k = et.findIndex(e => /barge/i.test(e.label || ""));
+  if (!o) return null;                       // pas encore de trajet de référence
+  if (k < 0) return {sans: true};            // trajet sans barge (même île)
+  const avantRoute = et.slice(0, k).reduce((a, e) => a + (e.min || 0), 0), traversee = et[k].min || 20;
+  const apresRoute = et.slice(k + 1).reduce((a, e) => a + (e.min || 0), 0);
+  return {avantRoute, traversee, apresRoute};
+}
+// Valeurs par défaut calculées : circulation réelle ≈ 1,5 × temps sans circulation, plus 30 min pour le quai ;
+// période scolaire : un quart du temps de route en plus ; après la barge : traversée, attente du taxi (10 min) et route.
+// Exemple Bandraboua → aéroport : 40 min de route → départ 1 h 30 avant la barge, 10 min de plus en période scolaire.
+function bargeDefauts(L){
+  if (!L || L.sans) return {avant: 90, scol: 10, apres: 45, source: L ? "" : "par défaut"};
+  return {avant: Math.round((L.avantRoute * 1.5 + 30) / 5) * 5, scol: Math.max(5, Math.round(L.avantRoute * .25 / 5) * 5),
+    apres: Math.round((L.traversee + 10 + L.apresRoute * 1.3) / 5) * 5, source: "ton itinéraire"};
+}
 // Barge à prendre pour arriver à l'heure, et heure de départ de la maison
 function planAller(svcM, vac){
-  const full = tripsFor("aller").filter(t => (t.steps||[]).length >= 7 && (t.stamps||[]).length >= 7 && t.stamps[6] > t.stamps[2] && t.stamps[2] > t.stamps[0]);
-  const apres = full.length >= 3 ? Math.round(pct(full.map(t => t.stamps[6] - t.stamps[2]), .8) / 60000) : S.apresBarge;
+  const L = bargeLegs(), D = bargeDefauts(L);
+  if (L?.sans) return {sans: true};
+  const full = tripsFor("aller").filter(t => (t.steps||[]).length >= 7 && (t.stamps||[]).length >= 7 && t.stamps[6] > t.stamps[2] && t.stamps[2] > t.stamps[0]
+    && (!t.dep || !refOf("aller")?.depart || nrm(t.dep) === nrm(refOf("aller").depart)));
+  const apresAppris = full.length >= 3 && S.apresBarge == null;
+  const apres = S.apresBarge ?? (apresAppris ? Math.round(pct(full.map(t => t.stamps[6] - t.stamps[2]), .8) / 60000) : D.apres);
   const limite = svcM - S.margin - apres;
   const b = [...HORAIRES].reverse().find(x => x.m <= limite), barge = b || HORAIRES[0];
   const meme = full.filter(t => isVac(t) === vac);
-  const appris = meme.length >= 3;
-  const avant = appris ? Math.round(pct(meme.map(t => t.stamps[2] - t.stamps[0]), .8) / 60000) : S.avantBarge + (vac ? 0 : S.plusScolaire);
-  return {barge, trop: !b, apres, avant, appris, nApres: full.length, nAvant: meme.length};
+  const appris = meme.length >= 3 && S.avantBarge == null;
+  const scol = S.plusScolaire ?? D.scol;
+  const avant = appris ? Math.round(pct(meme.map(t => t.stamps[2] - t.stamps[0]), .8) / 60000) : (S.avantBarge ?? D.avant) + (vac ? 0 : scol);
+  return {barge, trop: !b, apres, avant, appris, apresAppris, scol, nApres: full.length, nAvant: meme.length, D, L,
+    regle: S.avantBarge != null || S.apresBarge != null || S.plusScolaire != null};
 }
 const TAGS = ["Attente taxi", "Attente bus", "Attente barge", "Route bloquée", "Pluie", "Accident"];
 const HINTS = {"Arrivée à Mamoudzou":"Au quai de la barge", "Départ de Mamoudzou":"En taxi, voiture ou bus"};
@@ -131,7 +156,7 @@ function expected(d, opt = {}){
     }
   }
   if (rm && all.length < 3) return {ms: rm, n: all.length, set: [], depMin, jamRate: 0, jamAvg: 0,
-    src: `selon ton trajet de référence « ${chosenOpt(d).nom} »${curRef(d).source === "osm" ? " (OpenStreetMap)" : " vérifié sur Internet"}, hors embouteillages (${all.length ? "encore " + (3-all.length) + " trajet(s) à chronométrer" : "chronomètre tes trajets pour l'affiner"})`};
+    src: `selon ton trajet de référence « ${chosenOpt(d).nom} »${" calculé sur carte (OpenStreetMap)"}, hors embouteillages (${all.length ? "encore " + (3-all.length) + " trajet(s) à chronométrer" : "chronomètre tes trajets pour l'affiner"})`};
   return {ms: base, n: all.length, set: [], depMin, src: all.length ? `estimation de départ, encore ${3-all.length} trajet(s) à chronométrer` : "estimation de départ, chronomètre 3 trajets pour l'affiner", jamRate: 0, jamAvg: 0};
 }
 
@@ -167,15 +192,24 @@ function renderPlan(){
   const vacNote = vNow && !e.periodMatch && e.set.length ? " Vacances scolaires en cours : les routes sont en général moins chargées, ce calcul fondé sur des trajets en période scolaire est donc plutôt prudent." : "";
   const jam = e.jamRate >= .34 ? ` Embouteillage ${Math.round(e.jamRate*100)} % du temps sur ces trajets (${fmtDur(e.jamAvg)} perdues en moyenne), déjà compté.` : "";
   const al = x ? ` + ${x} min à cause des infos route du jour${lv ? " et des signalements en cours sur ton itinéraire" : ""}.` : "";
-  if (dir === "aller") {
+  const P = dir === "aller" ? planAller(h*60+m, !!vacOf(+target)) : null;
+  if (dir === "aller" && P.sans) {
+    // Trajet sans barge : début de service − durée du trajet − marge − retards
+    // Sans trajets chronométrés, le temps de la carte (sans circulation) est majoré de moitié
+    const carte = !e.set.length && e.n < 3 && refMs("aller"), ms = carte ? Math.round(e.ms * 1.5 / 300000) * 300000 : e.ms;
+    $("leaveAt").textContent = hhmm(new Date(target - ms - (S.margin + x)*60000));
+    $("why").textContent = `Pour prendre ton service à ${t} : ${fmtDur(ms)} de trajet ${carte ? `(${fmtDur(e.ms)} ${e.src}, majoré de moitié pour la circulation)` : e.src}, plus ${S.margin} min de marge${al || "."}${jam}${routeTip(dir)}${vacNote}`;
+  } else if (dir === "aller") {
     // Le départ se cale sur la barge : la dernière qui te dépose à l'heure, puis le temps habituel pour l'attraper
-    const vac = !!vacOf(+target), P = planAller(h*60+m, vac);
+    const vac = !!vacOf(+target);
     const dep = new Date(target); dep.setHours(0, P.barge.m - P.avant - x, 0, 0);
     $("leaveAt").textContent = hhmm(dep);
     const evts = x ? `, plus ${x} min à cause ${lv && x - lv ? "des infos route du jour et des signalements en cours sur ton itinéraire" : lv ? "des signalements en cours sur ton itinéraire" : "des infos route du jour"}` : "";
-    $("why").textContent = (P.trop ? `Aucune barge ne te dépose à l'heure pour ton service à ${t} : la première part à 5 h 30. Pars pour celle-là. ` : `Pour ton service à ${t} : ${P.barge.type.toLowerCase()} de ${hm(P.barge.m)}, la dernière qui te dépose à l'heure (${P.apres} min de la barge au travail${P.nApres >= 3 ? " d'après tes trajets" : ""}, ${S.margin} min de marge). `)
-      + `Départ ${dureeMin(P.avant)} avant la barge${P.appris ? `, d'après tes ${P.nAvant} trajets en ${vac ? "vacances" : "période scolaire"}` : (vac ? " (vacances scolaires)" : `, dont ${S.plusScolaire} min de plus en période scolaire`)}${evts}.`
-      + (P.appris ? "" : " Ces durées se règlent dans « Mes données » et s'ajustent toutes seules après 3 trajets chronométrés.");
+    const srcApres = S.apresBarge != null ? "réglé par toi" : P.apresAppris ? "d'après tes trajets" : P.L ? "d'après ton itinéraire" : "valeur par défaut";
+    const srcAvant = P.appris ? `d'après tes ${P.nAvant} trajets en ${vac ? "vacances" : "période scolaire"}` : S.avantBarge != null ? "réglé par toi" : P.L ? `d'après ton itinéraire : ${P.L.avantRoute} min de route jusqu'au quai sans circulation` : "valeur par défaut";
+    $("why").textContent = (P.trop ? `Aucune barge ne te dépose à l'heure pour ton service à ${t} : la première part à 5 h 30. Pars pour celle-là. ` : `Pour ton service à ${t} : ${P.barge.type.toLowerCase()} de ${hm(P.barge.m)}, la dernière qui te dépose à l'heure (${P.apres} min de la barge au travail, ${srcApres} ; ${S.margin} min de marge). `)
+      + `Départ ${dureeMin(P.avant)} avant la barge (${srcAvant}${!P.appris && !vac ? `, dont ${P.scol} min de plus en période scolaire` : ""})${evts}.`
+      + (!P.L ? " Renseigne ton trajet de référence pour un calcul adapté à ton village." : P.appris ? "" : " Ça s'affinera tout seul après 3 trajets chronométrés.");
   } else {
     $("leaveAt").textContent = hhmm(new Date(+target + e.ms + x*60000));
     $("why").textContent = `Si tu finis ton service à ${lab(t)} : ${fmtDur(e.ms)} de trajet ${e.src}${al || "."}${jam}${routeTip(dir)}${vacNote}`;
@@ -720,10 +754,14 @@ function renderMap(){
   carteMaj({dir, dep: dep.trim(), arr: arr.trim(), active: a, pos: myPos, sigs: sigs.filter(sigActive), expectedMs: a ? (a.prevu || expected(dir).ms) : 0});
 }
 let mapTimer = null; const renderMapSoon = () => { clearTimeout(mapTimer); mapTimer = setTimeout(renderMap, 250); };
-function renderAll(){ renderVac(); renderSigs(); renderRef(); renderPlan(); renderRoute(); renderStats(); renderHist(); updClock(); renderMapSoon(); }
+function renderAll(){ renderVac(); renderSigs(); renderRef(); renderPlan(); renderRoute(); renderStats(); renderHist(); updClock(); renderMapSoon(); fillBarge(); }
 
-function fillSettings(){ fillSvc(); if ($("sMargin")) $("sMargin").value = S.margin;
-  [["sAvant", "avantBarge"], ["sScol", "plusScolaire"], ["sApres", "apresBarge"]].forEach(([id, k]) => { if ($(id)) $(id).value = S[k]; }); if ($("sShare")) $("sShare").checked = S.shareJams !== false; }
+// Les valeurs fixes de la version précédente (90 / 10 / 45) redeviennent automatiques
+function normS(){ if (S.avantBarge === 90 && S.plusScolaire === 10 && S.apresBarge === 45) { S.avantBarge = S.plusScolaire = S.apresBarge = null; } }
+function fillBarge(){ const D = bargeDefauts(bargeLegs());
+  [["sAvant", "avantBarge", D.avant], ["sScol", "plusScolaire", D.scol], ["sApres", "apresBarge", D.apres]].forEach(([id, k, d]) => { const i = $(id); if (!i) return;
+    if (document.activeElement !== i) i.value = S[k] ?? ""; i.placeholder = `automatique (${d})`; }); }
+function fillSettings(){ fillSvc(); normS(); if ($("sMargin")) $("sMargin").value = S.margin; fillBarge(); if ($("sShare")) $("sShare").checked = S.shareJams !== false; }
 
 // ---- stockage
 async function saveTrip(id,t){
@@ -751,7 +789,9 @@ function csvExport(){
 $("exportBtn").onclick = csvExport;
 $("sMargin").addEventListener("change", e => { S.margin = Math.max(0, Math.min(120, Math.round(+e.target.value || 0))); e.target.value = S.margin; renderAll(); persistSettings(); status(`Marge de ${S.margin} min enregistrée.`); });
 [["sAvant", "avantBarge", 15, 240, "Départ avant la barge"], ["sScol", "plusScolaire", 0, 90, "Supplément en période scolaire"], ["sApres", "apresBarge", 10, 120, "Temps de la barge au travail"]].forEach(([id, k, lo, hi, lbl]) =>
-  $(id).addEventListener("change", e => { S[k] = Math.max(lo, Math.min(hi, Math.round(+e.target.value || 0))); e.target.value = S[k]; renderAll(); persistSettings(); status(`${lbl} : ${S[k]} min, enregistré.`); }));
+  $(id).addEventListener("change", e => { const v = e.target.value.trim();
+    S[k] = v === "" ? null : Math.max(lo, Math.min(hi, Math.round(+v || 0))); e.target.value = S[k] ?? ""; renderAll(); fillSettings(); persistSettings();
+    status(S[k] == null ? `${lbl} : calcul automatique.` : `${lbl} : ${S[k]} min, enregistré.`); }));
 $("sShare").addEventListener("change", e => { S.shareJams = e.target.checked; persistSettings(); renderActions(); status(S.shareJams ? "Tes embouteillages seront partagés." : "Tes embouteillages ne seront plus partagés."); });
 async function persistSettings(){
   if (setRef) { try{ await setRef.set(S); }catch(e){ ls.set("trajet.settings", S); } } else ls.set("trajet.settings", S);
