@@ -19,6 +19,14 @@ jobs:
         with:
           node-version: 22
 
+      - name: Ranger les fichiers (envoi par le site GitHub, sans dossiers)
+        run: |
+          mkdir -p source outils
+          if [ -f trajet.html ]; then mv trajet.html source/; fi
+          if [ -f carnet-local.js ]; then mv carnet-local.js outils/; fi
+          if [ -f construire.py ]; then mv construire.py outils/; fi
+          ls source outils
+
       - name: Assembler la page de l'appli
         run: python3 outils/construire.py
 
