@@ -19,22 +19,40 @@ jobs:
         with:
           node-version: 22
 
-      - name: Ranger les fichiers (envoi par le site GitHub, sans dossiers)
+      - name: Construire la page de l'appli (Vite)
         run: |
-          mkdir -p source outils
-          if [ -f trajet.html ]; then mv trajet.html source/; fi
-          if [ -f carnet-local.js ]; then mv carnet-local.js outils/; fi
-          if [ -f construire.py ]; then mv construire.py outils/; fi
-          ls source outils
+          npm install
+          npm run build
 
-      - name: Assembler la page de l'appli
-        run: python3 outils/construire.py
+      - name: Garder la page compilée (contrôle)
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-web
+          path: dist
 
       - name: Créer le projet iOS (Capacitor)
         run: |
-          npm install
           npx cap add ios
           npx cap sync ios
+
+      - name: Réglages iPhone (GPS, écran toujours allumé, icône, nom)
+        run: |
+          PL=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Delete :NSLocationWhenInUseUsageDescription" $PL 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string Ta position sert à te suivre sur la carte, à chronométrer ton trajet en cours et à situer les évènements signalés." $PL
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Trajet Mayotte" $PL 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Trajet Mayotte" $PL
+          cp ios-ressources/AppIcon-512@2x.png ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+          python3 - <<'PY'
+          import pathlib, re
+          p = pathlib.Path("ios/App/App/AppDelegate.swift")
+          s = p.read_text()
+          # L'iPhone ne se met pas en veille tant que l'appli est ouverte
+          s = re.sub(r"(didFinishLaunchingWithOptions[^{]*\{)", r"\1\n        UIApplication.shared.isIdleTimerDisabled = true", s, count=1)
+          s = re.sub(r"(func applicationDidBecomeActive\(_ application: UIApplication\) \{)", r"\1\n        UIApplication.shared.isIdleTimerDisabled = true", s, count=1)
+          assert s.count("isIdleTimerDisabled") == 2, s
+          p.write_text(s)
+          print("AppDelegate : mise en veille désactivée")
+          PY
 
       - name: Compiler sans signature
         run: |
@@ -50,18 +68,18 @@ jobs:
           cd ios/App
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -qry "$GITHUB_WORKSPACE/Trajet.ipa" Payload
-          ls -lh "$GITHUB_WORKSPACE/Trajet.ipa"
+          zip -qry "$GITHUB_WORKSPACE/TrajetMayotte.ipa" Payload
+          ls -lh "$GITHUB_WORKSPACE/TrajetMayotte.ipa"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Trajet-ipa
-          path: Trajet.ipa
+          name: TrajetMayotte-ipa
+          path: TrajetMayotte.ipa
 
       - name: Publier dans les Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ github.run_number }}" Trajet.ipa \
-            --title "Trajet, fabrication ${{ github.run_number }}" \
-            --notes "Fichier Trajet.ipa non signé, à installer sur iPhone avec Sideloadly."
+          gh release create "v${{ github.run_number }}" TrajetMayotte.ipa \
+            --title "Trajet Mayotte, fabrication ${{ github.run_number }}" \
+            --notes "Fichier TrajetMayotte.ipa non signé, à installer sur iPhone avec Sideloadly."

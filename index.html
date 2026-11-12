@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B7A75">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trajet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Trajet Mayotte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Trajet Mayotte</h1>
+      <p class="vac" id="vacBadge" hidden></p>
+      <p class="sub" id="dirSub">Sortie du travail → barge → retour à la maison</p>
+    </div>
+    <div class="seg" role="group" aria-label="Sens du trajet">
+      <button id="dAller" aria-pressed="false">Maison → Travail</button>
+      <button id="dRetour" aria-pressed="true">Travail → Maison</button>
+    </div>
+  </header>
+
+  <section class="panel" id="svcPanel" aria-labelledby="hSvc">
+    <h2 id="hSvc">Mes horaires de service</h2>
+    <div class="plan" style="margin-top:10px">
+      <div class="svc" style="margin-top:0;padding-top:0;border-top:0">
+        <label for="svcA" id="lA"><span>Début de service</span><input type="time" id="svcA"></label>
+        <label for="svcR" id="lR"><span>Fin de service</span><input type="time" id="svcR"></label>
+        <label for="fixed" class="fix"><input type="checkbox" id="fixed"> Horaires fixes</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="lieuxPanel" aria-labelledby="hLieux">
+    <h2 id="hLieux">Mon trajet de référence</h2>
+    <p class="empty" id="refIntro" style="margin:6px 0 0">Indique où tu pars et où tu arrives : les itinéraires de l'aller et du retour se calculent tout seuls.</p>
+    <div class="lieux">
+      <label for="lieuDep">Départ (maison)<input type="text" id="lieuDep" placeholder="ex. Bandraboua" autocomplete="off" enterkeyhint="next"></label>
+      <label for="lieuArr">Arrivée (travail)<input type="text" id="lieuArr" placeholder="ex. Aéroport de Pamandzi" autocomplete="off" enterkeyhint="go"></label>
+    </div>
+    <p class="refmsg" id="refMsg" role="status" hidden></p>
+    <div id="refOut" aria-live="polite"></div>
+    <button class="btn ghost" id="refBtn" type="button" style="margin-top:12px" hidden>Recalculer</button>
+  </section>
+
+  <section class="panel" aria-labelledby="hPlan">
+    <h2 id="hPlan">Heure de départ conseillée</h2>
+    <div class="plan" style="margin-top:10px">
+      <div class="big num" id="leaveAt">--:--</div>
+      <span></span>
+      <p class="why" id="why"></p>
+      <p class="advice" id="advice" hidden></p>
+      <button class="btn ghost" id="adviceBtn" type="button" style="grid-column:1/-1">Demander un conseil pour ce trajet</button>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="alert" hidden></div>
+  <dialog class="welcome" id="welcome" aria-labelledby="wTitle">
+    <h2 id="wTitle">Ton trajet</h2>
+    <p class="empty" style="margin:8px 0 0">Indique d'où tu pars et où tu travailles. Les itinéraires de l'aller et du retour se calculent dès que les deux lieux sont remplis.</p>
+    <div class="lieux">
+      <label for="wDep">Départ (maison)<input type="text" id="wDep" placeholder="ex. Bandraboua" autocomplete="off" enterkeyhint="next"></label>
+      <label for="wArr">Arrivée (travail)<input type="text" id="wArr" placeholder="ex. Aéroport de Pamandzi" autocomplete="off" enterkeyhint="go"></label>
+    </div>
+    <button class="btn ghost" id="wLater" type="button">Plus tard</button>
+  </dialog>
+
+  <section class="panel veille" id="veille" aria-live="polite"></section>
+
+  <section class="panel" id="signal" aria-labelledby="hSig">
+    <div class="vhead"><h2 id="hSig">Signalements en direct</h2><span class="lvl none" id="sigCount">aucun en cours</span></div>
+    <ul class="sigs" id="sigList"></ul>
+    <details id="sigForm" class="sigform">
+      <summary class="btn" id="sigOpen">Signaler un évènement</summary>
+      <div class="chips" id="sigTypes" role="radiogroup" aria-label="Type d'évènement"></div>
+      <div class="lieux">
+        <label for="sigLieu">Où ?<input type="text" id="sigLieu" list="placesList" placeholder="ex. Kawéni, rond-point SFR" autocomplete="off"></label>
+        <label for="sigDet">Précision (facultatif)<input type="text" id="sigDet" maxlength="140" placeholder="ex. file jusqu'à Majicavo" autocomplete="off"></label>
+      </div>
+      <datalist id="placesList"></datalist>
+      <button class="btn" id="sigSend" type="button" style="margin-top:12px">Envoyer le signalement</button>
+      <p class="empty" id="sigHelp" style="margin:8px 0 0">Ta position GPS est jointe au signalement. Tous les utilisateurs reçoivent une notification, et le signalement reste visible 2 heures.</p>
+    </details>
+  </section>
+
+
+  <section class="panel" aria-labelledby="hRoute">
+    <div class="chrono">
+      <h2 id="hRoute">Trajet en cours</h2>
+      <div><span class="num" id="clock">0:00</span> <span class="vs" id="vs"></span></div>
+    </div>
+    <div class="carte-box" id="carteBox" hidden></div>
+    <ol class="route" id="route"></ol>
+    <div class="jams" id="jams" hidden></div>
+    <div class="jams stops" id="stops" hidden></div>
+    <div style="margin-top:18px" id="actions"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="hStats">
+    <h2 id="hStats">Mes temps</h2>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><span class="num" id="kAvg">–</span><small>Moyenne</small></div>
+      <div class="kpi"><span class="num" id="kP80">–</span><small>8 fois sur 10</small></div>
+      <div class="kpi"><span class="num" id="kN">0</span><small>Trajets</small></div>
+    </div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="hHist">
+    <h2 id="hHist">Historique</h2>
+    <ul class="hist" id="hist" style="margin-top:8px"></ul>
+  </section>
+
+  <section class="panel" aria-labelledby="hCompte">
+    <h2 id="hCompte">Mes données</h2>
+    <p class="empty" style="margin:10px 0 0">Tes trajets sont privés et liés à cet appareil. Les signalements sont anonymes et visibles par tous pendant 2 heures.</p>
+    <div class="row">
+      <button class="btn ghost" id="notifBtn" type="button">Activer les notifications</button>
+      <button class="btn ghost" id="wipeBtn" type="button">Effacer mes données</button>
+    </div>
+    <div class="set">
+      <label for="sMargin">Marge avant le début de service (minutes)<input type="number" id="sMargin" min="0" max="120" step="5" inputmode="numeric"></label>
+      <label for="sShare" class="fix"><input type="checkbox" id="sShare"> Partager mes embouteillages avec les autres utilisateurs</label>
+      <button class="btn ghost" id="exportBtn" type="button">Exporter mes trajets (texte CSV à copier)</button>
+      <textarea id="exportOut" hidden readonly aria-label="Trajets au format CSV"></textarea>
+    </div>
+    <div class="confirm" id="wipeConfirm" hidden style="margin-top:10px">Tous tes trajets et réglages seront supprimés définitivement.
+      <button type="button" id="wipeYes">Effacer</button><button type="button" id="wipeNo">Annuler</button></div>
+    <p class="empty" style="margin:10px 0 0"><a href="https://trajet-mayotte.web.app/confidentialite.html" id="privacyLink" target="_blank" rel="noopener" style="color:var(--lagon)">Politique de confidentialité</a></p>
+  </section>
+
+  <p class="status" id="status">Connexion au carnet…</p>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

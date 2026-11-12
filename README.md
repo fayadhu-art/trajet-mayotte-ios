@@ -1,31 +1,30 @@
-# Trajet (Mayotte) : version autonome pour iPhone
+# Trajet Mayotte
 
-Appli de trajet maison-travail à Mayotte, pour n'importe quels villages : heure de départ conseillée,
-chrono par étapes, statistiques, historique et export. Cette version fonctionne sans réseau et garde
-toutes les données sur le téléphone.
+Appli de trajet maison–travail à Mayotte, toujours reliée à Internet :
+
+- heure de départ conseillée d'après ton heure de service ;
+- chrono par étapes (barge, taxi…) ;
+- carte avec ta position GPS, le tracé parcouru et l'avancement sur l'itinéraire ;
+- signalements partagés ;
+- veille route et barge, et itinéraires calculés en ligne ;
+- statistiques, historique et export CSV.
+
+L'écran de l'iPhone reste allumé tant que l'appli est ouverte.
+
+Cette appli réunit la version en ligne (https://trajet-mayotte.web.app) et l'ancienne version iPhone autonome.
 
 ## Installer avec Sideloadly
 
-1. Ouvre l'onglet **Releases** du dépôt et télécharge le dernier `Trajet.ipa`.
-2. Sur ton ordinateur, ouvre Sideloadly, branche l'iPhone, glisse `Trajet.ipa` dans la fenêtre.
-3. Saisis ton identifiant Apple et lance l'installation.
-4. Sur l'iPhone : Réglages > Général > VPN et gestion de l'appareil, puis fais confiance à ton identifiant.
-   Sur iOS 16 et plus, active aussi le mode développeur si l'iPhone le demande.
+1. Ouvre l'onglet **Releases** du dépôt et télécharge le dernier `TrajetMayotte.ipa`.
+2. Ouvre Sideloadly, branche l'iPhone et glisse `TrajetMayotte.ipa` dans la fenêtre.
+3. Réinstalle toujours par-dessus l'ancienne version : tes trajets restent dans ton carnet en ligne.
 
-Avec un identifiant Apple gratuit, l'appli doit être réinstallée tous les 7 jours. Réinstalle par-dessus
-l'ancienne, sans la supprimer : la supprimer efface les trajets. Exporte tes trajets de temps en temps
-(Réglages, en bas de l'appli).
+## Fabrication
 
-## Ce que cette version ne fait pas
+Chaque envoi sur `main` déclenche GitHub Actions, qui :
 
-Sans Claude, il n'y a ni calcul d'itinéraires en ligne, ni veille route et barge, ni signalements
-partagés, ni conseil rédigé. Tu saisis toi-même tes itinéraires (nom, durée, villages traversés).
+1. construit la page avec Vite ;
+2. crée le projet iOS avec Capacitor ;
+3. compile, puis publie `TrajetMayotte.ipa` dans les Releases.
 
-## Mettre à jour l'appli
-
-- `source/trajet.html` : la page de l'appli, la même que la version en ligne.
-- `outils/carnet-local.js` : le stockage sur le téléphone.
-- `outils/construire.py` : assemble `www/index.html`.
-
-Chaque envoi sur la branche `main` refabrique `Trajet.ipa` (GitHub Actions, sur Mac) et le publie
-dans les Releases.
+La même page est publiée sur Firebase Hosting.
