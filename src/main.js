@@ -31,7 +31,7 @@ let manualIdx = null, manualPick = null;
 
 let S = {...DEF}, trips = [], dir = "aller", db = null, uid = null, tripsCol = null, setRef = null;
 let active = null, tags = new Set(), note = "", pendingDel = null, tick = null, wake = null;
-let pendingLocal = [], abandonAsk = false, evPick = false, lateStart = false;
+let pendingLocal = [], abandonAsk = false, evPick = false, lateStart = false; const modeMem = {};
 const EV_TYPES = ["Accident", "Route bloquée / barrage", "Travaux", "Contrôle routier", "Barge à l'arrêt ou retardée", "Longue attente de taxi", "Route inondée / éboulement", "Pluie forte", "Panne", "Autre"];
 const RULE_BEFORE = 480; // service avant 8 h : vérifier la première barge
 
@@ -205,11 +205,22 @@ function renderActions(){
   }
   if (active && manualIdx != null && manualIdx < active.steps.length && manualIdx <= active.stamps.length) { renderManual(box); return; }
   if (!active) {
-    if (dir==="retour") { const b = btn("Je sors du travail", "btn"); b.onclick = () => start(); box.append(b); lateBox(box); return; }
+    // Rappel : les boutons d'arrêt, d'embouteillage et d'évènement s'activent une fois le départ lancé
+    const tip = () => { const w = document.createElement("div");
+      const sb = btn("Je m'arrête (course, pause…)", "btn stopbtn"); sb.style.opacity = ".55"; sb.setAttribute("aria-disabled", "true");
+      const p = document.createElement("p"); p.className = "empty"; p.style.margin = "8px 0 0";
+      p.textContent = "Arrêts, embouteillages et évènements se notent pendant le trajet : ces boutons s'activent dès que tu as lancé le départ. Le temps d'arrêt n'est pas compté dans ton temps de route.";
+      sb.onclick = () => { status("Lance d'abord le trajet : le bouton « Je m'arrête » s'active juste après."); p.style.color = "var(--ambre)"; };
+      w.append(sb, p); return w; };
+    if (dir==="retour") { const b = btn("Je sors du travail", "btn"); b.onclick = () => start(); box.append(b); lateBox(box, null); box.append(tip()); return; }
     const q2 = document.createElement("p"); q2.className="empty"; q2.style.margin="0 0 10px"; q2.textContent = "Je pars de la maison en :"; box.append(q2);
-    const r0 = document.createElement("div"); r0.className="row"; r0.style.marginTop="0";
-    MODES.forEach(k => { const b = btn(k, "btn"); b.onclick = () => start(k); r0.append(b); });
-    box.append(r0); lateBox(box); return;
+    // Le moyen se choisit sans rien lancer (dernier choix déjà coché) ; seul le grand bouton démarre le chrono
+    const saved = modeMem.A ?? ls.get("trajet.modeA"), cur = MODES.includes(saved) ? saved : null;
+    const r0 = document.createElement("div"); r0.className="row bpick"; r0.style.marginTop="0"; r0.setAttribute("role","radiogroup"); r0.setAttribute("aria-label","Moyen de transport");
+    MODES.forEach(k => { const b = btn(k, "btn ghost pick"); b.setAttribute("role","radio"); b.setAttribute("aria-checked", cur === k); b.onclick = () => { modeMem.A = k; ls.set("trajet.modeA", k); renderActions(); }; r0.append(b); });
+    const go = btn(cur ? `Je pars · ${cur}` : "Choisis d'abord ton moyen", "btn"); go.id = "goBtn"; go.style.marginTop = "10px";
+    go.disabled = !cur; if (!cur) go.style.opacity = ".45"; go.onclick = () => start(cur);
+    box.append(r0, go); lateBox(box, cur); box.append(tip()); return;
   }
   const n = active.stamps.length;
   if (n < st.length && openStop()) {
@@ -371,19 +382,16 @@ function renderEventButton(box){
   box.append(ch);
 }
 // Trajet déjà commencé sans avoir appuyé : on saisit l'heure de départ, puis chaque étape avec « Saisir l'heure à la main »
-function lateBox(box){
+function lateBox(box, mode){
   if (!lateStart) { const b = btn("Déjà parti ? Saisir l'heure de départ à la main", "btn ghost"); b.style.marginTop = "10px"; b.onclick = () => { lateStart = true; renderActions(); }; box.append(b); return; }
-  let mode = dir === "aller" ? (ls.get("trajet.modeA") || null) : null;
   const lb = document.createElement("label"); lb.className = "mlab"; lb.style.marginTop = "12px"; lb.textContent = "Heure de départ";
   const inp = document.createElement("input"); inp.type = "time"; inp.id = "lTime"; inp.value = hhmm(new Date()); lb.append(inp); box.append(lb);
-  if (dir === "aller") { const ch = document.createElement("div"); ch.className = "chips"; ch.style.margin = "10px 0 0";
-    MODES.forEach(k => { const c = btn(k, "chip"); c.setAttribute("aria-pressed", mode === k); c.onclick = () => { mode = k; ch.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.textContent === k)); }; ch.append(c); }); box.append(ch); }
   const err = document.createElement("p"); err.className = "empty"; err.style.color = "var(--rouge)"; err.hidden = true;
   const ok = btn("Démarrer le trajet à cette heure", "btn"); ok.style.marginTop = "12px";
   ok.onclick = () => {
     const [h, m] = (inp.value || "").split(":").map(Number);
     if (!Number.isFinite(h) || !Number.isFinite(m)) { err.textContent = "Indique une heure."; err.hidden = false; return; }
-    if (dir === "aller" && !mode) { err.textContent = "Choisis d'abord ton moyen de transport."; err.hidden = false; return; }
+    if (dir === "aller" && !mode) { err.textContent = "Choisis d'abord ton moyen de transport, au-dessus."; err.hidden = false; return; }
     const d = new Date(); d.setHours(h, m, 0, 0); if (+d > Date.now() + 60000) d.setDate(d.getDate() - 1); // une heure pas encore passée aujourd'hui = hier
     lateStart = false; start(mode || undefined); active.stamps[0] = +d; active.vac = !!vacOf(+d); persistActive(); renderAll();
     status(`Trajet démarré à ${hhmm(d)}. Pour chaque étape déjà passée, touche « Pas pu appuyer ? Saisir l'heure à la main ».`);
