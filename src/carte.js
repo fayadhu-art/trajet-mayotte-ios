@@ -21,11 +21,18 @@ const km = m => (m / 1000).toFixed(m < 10000 ? 1 : 0).replace(".", ",") + " km";
 async function geocode(q) {
   const k = "g:" + q.toLowerCase().trim();
   if (cache[k]) return cache[k];
-  const u = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=yt&accept-language=fr&q=" + encodeURIComponent(q + ", Mayotte");
-  const r = await fetch(u, { headers: { "Accept": "application/json" } });
-  const j = await r.json();
-  if (!j[0]) return null;
-  cache[k] = [+(+j[0].lat).toFixed(5), +(+j[0].lon).toFixed(5)]; keep();
+  let c = null;
+  // Photon (OpenStreetMap), limité à Mayotte ; Nominatim en secours
+  try {
+    const j = await (await fetch("https://photon.komoot.io/api/?limit=1&lang=fr&bbox=44.9,-13.1,45.35,-12.6&q=" + encodeURIComponent(q))).json();
+    const f = j.features?.[0]; if (f) c = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
+  } catch (e) {}
+  if (!c) try {
+    const j = await (await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=yt&q=" + encodeURIComponent(q + ", Mayotte"))).json();
+    if (j[0]) c = [+j[0].lat, +j[0].lon];
+  } catch (e) {}
+  if (!c) return null;
+  cache[k] = [+c[0].toFixed(5), +c[1].toFixed(5)]; keep();
   return cache[k];
 }
 // Itinéraire routier entre les deux lieux (la barge est un bac dans OpenStreetMap : OSRM sait la prendre)
