@@ -128,6 +128,9 @@
     </div>
     <div class="set">
       <label for="sMargin">Marge avant le début de service (minutes)<input type="number" id="sMargin" min="0" max="120" step="5" inputmode="numeric"></label>
+      <label for="sAvant">Je pars de la maison combien de temps avant la barge (minutes, en vacances)<input type="number" id="sAvant" min="15" max="240" step="5" inputmode="numeric"></label>
+      <label for="sScol">En période scolaire, je pars plus tôt de (minutes)<input type="number" id="sScol" min="0" max="90" step="5" inputmode="numeric"></label>
+      <label for="sApres">De la barge au travail : traversée, taxi et attente (minutes)<input type="number" id="sApres" min="10" max="120" step="5" inputmode="numeric"></label>
       <label for="sShare" class="fix"><input type="checkbox" id="sShare"> Partager mes embouteillages avec les autres utilisateurs</label>
       <button class="btn ghost" id="exportBtn" type="button">Exporter mes trajets (texte CSV à copier)</button>
       <textarea id="exportOut" hidden readonly aria-label="Trajets au format CSV"></textarea>
