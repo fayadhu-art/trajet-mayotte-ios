@@ -51,6 +51,8 @@ const svc = d => { const k = d === "aller" ? "tA" : "tR";
 const lab = t => t === "00:00" ? "minuit" : t;
 const atTime = (base, t) => { const [h,m]=(t||"0:0").split(":").map(Number); const d=new Date(base); d.setHours(h,m,0,0); return d; };
 const gap = ms => { const m=Math.round(Math.abs(ms)/60000); return m===0 ? "pile à l'heure" : (ms<0 ? `${m} min d'avance` : `${m} min de retard`); };
+const fmtKm = m => (m / 1000).toFixed(1).replace(".", ",") + " km";
+const tripKm = t => t.km != null ? t.km * 1000 : null;
 const fmtDur = ms => { const m = Math.round(ms/60000); return m >= 60 ? `${Math.floor(m/60)}h${String(m%60).padStart(2,"0")}` : `${m} min`; };
 const fmtClock = ms => { const s = Math.floor(ms/1000); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
   return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
@@ -436,7 +438,7 @@ function stamp(barge, mode, route, ts){ abandonAsk = false; if (barge) active.ba
   if (active.stamps.length === active.steps.length) { const o = openJam(); if (o) o.end = Math.max(o.start, at); } persistActive(); if (active.stamps.length===active.steps.length) stopTick(); renderAll(); }
 function undo(){ manualIdx = null; if (active.stamps.length<=1){ active=null; stopTick(); stopTracking(); } else { active.stamps.pop(); if (!active.stamps.some((_,k)=>isBarge(active.steps[k]))) delete active.barge; if (active.dir==="retour" && !active.stamps.some((_,k)=>isHome(active.steps[k]))) { delete active.mode; delete active.route; } startTick(); } persistActive(); renderAll(); }
 async function finish(){
-  const t = {dir: active.dir, start: active.stamps[0], end: active.stamps.at(-1), stamps: active.stamps, steps: active.steps, service: active.service || null, vac: !!active.vac, prevu: active.prevu || null, itin: active.itin || null, dep: active.dep || null, arr: active.arr || null, barge: active.barge || null, mode: active.mode || null, route: active.route || null, jams: (active.jams||[]).map(j=>({...j, end: j.end || active.stamps.at(-1)})), events: (active.events||[]).map(e=>({...e})), stops: (active.stops||[]).map(x=>({...x, end: x.end || active.stamps.at(-1)})), track: (active.track||[]).slice(-400), tags:[...tags], note: note.trim()};
+  const t = {dir: active.dir, start: active.stamps[0], end: active.stamps.at(-1), stamps: active.stamps, steps: active.steps, service: active.service || null, vac: !!active.vac, prevu: active.prevu || null, itin: active.itin || null, dep: active.dep || null, arr: active.arr || null, barge: active.barge || null, mode: active.mode || null, route: active.route || null, jams: (active.jams||[]).map(j=>({...j, end: j.end || active.stamps.at(-1)})), events: (active.events||[]).map(e=>({...e})), km: active.gpsM ? +(active.gpsM/1000).toFixed(1) : (active.km ?? null), vmax: active.vmax || null, stops: (active.stops||[]).map(x=>({...x, end: x.end || active.stamps.at(-1)})), track: (active.track||[]).slice(-400), tags:[...tags], note: note.trim()};
   const id = "t" + t.start, old = active.editId;
   trips = trips.filter(x=>x.id!==id && x.id!==old).concat({...t,id});
   active = null; persistActive(); stopTick(); stopTracking(); renderAll();
@@ -447,7 +449,7 @@ async function finish(){
 function editTrip(t){
   if (active) { status("Termine ou abandonne d'abord le trajet en cours."); return; }
   active = {dir: t.dir, stamps: [...t.stamps], steps: [...t.steps], service: t.service || null, vac: isVac(t), prevu: t.prevu || null, itin: t.itin || null, dep: t.dep || null, arr: t.arr || null,
-    jams: (t.jams||[]).map(j => ({...j})), stops: (t.stops||[]).map(x => ({...x})), events: (t.events||[]).map(e => ({...e})), editId: t.id};
+    jams: (t.jams||[]).map(j => ({...j})), stops: (t.stops||[]).map(x => ({...x})), events: (t.events||[]).map(e => ({...e})), km: t.km ?? null, vmax: t.vmax ?? null, editId: t.id};
   if (t.barge) active.barge = t.barge; if (t.mode) active.mode = t.mode; if (t.route) active.route = t.route;
   if (t.track) active.track = t.track;
   tags = new Set(t.tags || []); note = t.note || ""; manualIdx = null; persistActive(); setDir(t.dir);
@@ -474,7 +476,7 @@ function updClock(){
   if (openStop()) renderStops();
   const sm = stopMs(active, active.stamps[0], end);
   const e = expected(dir).ms, eta = new Date(active.stamps[0] + e + sm);
-  $("vs").textContent = `arrivée prévue ${hhmm(eta)}` + (sm >= 60000 ? ` · dont ${fmtDur(sm)} d'arrêt` : "") + (dir==="aller" && active.service ? ` · service à ${active.service}` : "");
+  $("vs").textContent = (active.gpsM ? `${fmtKm(active.gpsM)} · ` : "") + `arrivée prévue ${hhmm(eta)}` + (sm >= 60000 ? ` · dont ${fmtDur(sm)} d'arrêt` : "") + (dir==="aller" && active.service ? ` · service à ${active.service}` : "");
 }
 
 function renderStats(){
@@ -519,6 +521,11 @@ function renderStats(){
   const vs = all.filter(isVac), sc = all.filter(t => !isVac(t));
   if (vs.length && sc.length) { const p=document.createElement("p"); p.className="empty";
     p.textContent = `Période scolaire ${fmtDur(avg(sc.map(drive)))} (${sc.length}×) · vacances scolaires ${fmtDur(avg(vs.map(drive)))} (${vs.length}×).`; box.append(p); }
+  const wk = all.filter(t => t.km);
+  if (wk.length) { const p = document.createElement("p"); p.className = "empty"; const now = new Date();
+    const mois = trips.filter(t => t.km && new Date(t.start).getMonth() === now.getMonth() && new Date(t.start).getFullYear() === now.getFullYear()).reduce((a, t) => a + t.km, 0);
+    const tot = trips.filter(t => t.km).reduce((a, t) => a + t.km, 0);
+    p.textContent = `Kilométrage (GPS) : ${fmtKm(avg(wk.map(t => t.km * 1000)))} en moyenne dans ce sens (${wk.length}×) · ${fmtKm(mois * 1000)} ce mois-ci · ${fmtKm(tot * 1000)} au total, aller et retour.`; box.append(p); }
   const pv = all.filter(t => t.prevu);
   if (pv.length) { const ec = Math.round(avg(pv.map(t => drive(t) - t.prevu))/60000), p = document.createElement("p"); p.className = "empty";
     p.textContent = `Prévisions : sur ${pv.length} trajet(s), le réel dépasse le prévu de ${ec} min en moyenne` + (ec < 0 ? " (tu arrives plus tôt que prévu)." : "."); box.append(p); }
@@ -560,6 +567,8 @@ function renderHist(){
       b.textContent=`Arrêt${x.motif ? " " + x.motif.toLowerCase() : ""} ${hhmm(new Date(x.start))}–${hhmm(new Date(x.end))} (${fmtDur(x.end-x.start)})`; b.title = jamSpot(x); sm.append(b); });
     (t.events||[]).forEach(e => { const b=document.createElement("span"); b.className="tag jamt"; b.textContent=`${e.type} ${hhmm(new Date(e.at))}`; b.title = jamSpot(e); sm.append(b); });
     if (isVac(t)) { const b=document.createElement("span"); b.className="tag"; b.textContent="Vacances scolaires"; sm.append(b); }
+    if (t.km) { const b=document.createElement("span"); b.className="tag barge"; b.textContent=fmtKm(t.km*1000); b.title = "Distance mesurée par le GPS"; sm.append(b);
+      const b2=document.createElement("span"); b2.className="tag"; b2.textContent=`Moy. ${Math.round(t.km / (drive(t)/3600000))} km/h` + (t.vmax ? ` · max ${t.vmax} km/h` : ""); b2.title = "Vitesse moyenne sur le temps de route, barge et attentes comprises"; sm.append(b2); }
     if (t.prevu) { const b=document.createElement("span"); b.className="tag"; b.textContent=`Prévu ${fmtDur(t.prevu)}, ${gap(drive(t) - t.prevu)}`; sm.append(b); }
     if (t.itin) { const b=document.createElement("span"); b.className="tag barge"; b.textContent=t.itin; sm.append(b); }
     if (t.route) { const b=document.createElement("span"); b.className="tag barge"; b.textContent=t.route; sm.append(b); }
@@ -698,8 +707,8 @@ async function delTrip(id){
 }
 function csvExport(){
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`, mn = ms => Math.round(ms/60000);
-  const rows = [["date","sens","lieu_depart","lieu_arrivee","heure_depart","heure_arrivee","route_min","total_min","prevu_min","itineraire","moyen","passage","barge","service","vacances","embouteillages_min","arrets_min","evenements","etapes","ralentissements","note"]];
-  [...trips].sort((a,b) => a.start - b.start).forEach(t => rows.push([isoDay(t.start), t.dir, t.dep || "", t.arr || "", hhmm(new Date(t.start)), hhmm(new Date(t.end)), mn(drive(t)), mn(t.end - t.start), t.prevu ? mn(t.prevu) : "", t.itin || "", t.mode || "", t.route || "", t.barge || "", t.service || "", isVac(t) ? "oui" : "non",
+  const rows = [["date","sens","lieu_depart","lieu_arrivee","heure_depart","heure_arrivee","route_min","total_min","km","vitesse_moy_kmh","vitesse_max_kmh","prevu_min","itineraire","moyen","passage","barge","service","vacances","embouteillages_min","arrets_min","evenements","etapes","ralentissements","note"]];
+  [...trips].sort((a,b) => a.start - b.start).forEach(t => rows.push([isoDay(t.start), t.dir, t.dep || "", t.arr || "", hhmm(new Date(t.start)), hhmm(new Date(t.end)), mn(drive(t)), mn(t.end - t.start), t.km != null ? String(t.km).replace(".", ",") : "", t.km ? Math.round(t.km / (drive(t)/3600000)) : "", t.vmax || "", t.prevu ? mn(t.prevu) : "", t.itin || "", t.mode || "", t.route || "", t.barge || "", t.service || "", isVac(t) ? "oui" : "non",
     mn((t.jams||[]).reduce((a,j) => a + (j.end - j.start), 0)), mn(stopMs(t, t.start, t.end)), (t.events||[]).map(e => `${e.type} ${hhmm(new Date(e.at))}`).join(" | "), (t.steps||[]).map((n,k) => t.stamps[k] ? `${n} ${hhmm(new Date(t.stamps[k]))}` : null).filter(Boolean).join(" | "), (t.tags||[]).join(" | "), t.note || ""]));
   const csv = rows.map(r => r.map(q).join(";")).join("\r\n");
   const out = $("exportOut"); out.value = csv; out.hidden = false; out.style.minHeight = "120px";
@@ -741,10 +750,19 @@ function distKm(a, b){ const R = 6371, r = Math.PI/180, dLat = (b.lat-a.lat)*r, 
 async function startTracking(){
   if (watchId != null) return;
   watchId = await watchPosition(p => {
+    // Vitesse : celle du GPS, sinon calculée entre deux positions
+    const prev = myPos; let v = p.speed != null ? p.speed * 3.6 : null;
+    if (v == null && prev && p.t > prev.t) { const dt = (p.t - prev.t) / 1000; if (dt >= 1 && dt <= 30) v = distKm(prev, p) * 3600 / dt; }
+    p.kmh = v == null ? null : (v < 3 ? 0 : Math.round(v));
     myPos = p;
+    // Vitesse maximale : seulement la vitesse mesurée par le GPS, plus fiable que l'écart entre deux positions
+    if (active && p.speed != null && (p.acc || 0) <= 30 && p.kmh < 160) active.vmax = Math.max(active.vmax || 0, p.kmh);
     if (active && active.stamps.length < active.steps.length) {
       active.track ||= []; const last = active.track.at(-1);
       if (!last || p.t - last[0] >= 15000) { active.track.push([p.t, +p.lat.toFixed(5), +p.lng.toFixed(5)]); persistActive(); }
+      // Kilométrage : somme des déplacements entre deux positions précises (on ignore le bruit de moins de 15 m)
+      if ((p.acc || 0) <= 60) { const lf = active.lastFix, d = lf ? distKm(lf, p) * 1000 : 0;
+        if (!lf || d >= 15) { if (lf) active.gpsM = (active.gpsM || 0) + d; active.lastFix = {lat: p.lat, lng: p.lng}; if (d >= 15) persistActive(); } }
     }
     renderSigs(); renderMapSoon();
   });

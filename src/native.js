@@ -5,7 +5,8 @@ import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 
 const native = Capacitor.isNativePlatform();
-const toPos = (p) => ({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy || 0), t: p.timestamp || Date.now() });
+const toPos = (p) => ({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy || 0), t: p.timestamp || Date.now(),
+  speed: p.coords.speed != null && p.coords.speed >= 0 ? p.coords.speed : null });
 
 export async function getPosition() {
   try {

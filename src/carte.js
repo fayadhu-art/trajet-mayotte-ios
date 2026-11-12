@@ -67,7 +67,7 @@ function progress(line, p) {
 
 function init(container) {
   el = container;
-  el.innerHTML = '<div class="carte" id="carteMap" role="img" aria-label="Carte du trajet"></div><div class="carte-bas"><p class="carte-info" id="carteInfo"></p><button class="carte-suivre" id="carteSuivre" type="button" hidden>Me suivre</button></div>';
+  el.innerHTML = '<div class="carte-wrap"><div class="carte" id="carteMap" role="img" aria-label="Carte du trajet"></div><div class="vitesse" id="carteVitesse" hidden aria-live="off"><b>0</b><span>km/h</span></div></div><div class="carte-bas"><p class="carte-info" id="carteInfo"></p><button class="carte-suivre" id="carteSuivre" type="button" hidden>Me suivre</button></div>';
   info = el.querySelector("#carteInfo"); followBtn = el.querySelector("#carteSuivre");
   map = L.map(el.querySelector("#carteMap"), { zoomControl: true, attributionControl: true }).setView(MAYOTTE, 10);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
@@ -118,6 +118,10 @@ export async function carteMaj(etat) {
   setTimeout(() => map.invalidateSize(), 0);
   if (r && fitted !== key) { fitted = key; map.fitBounds(L.latLngBounds(r.line).pad(.08)); }
   if (p && etat.active && follow) map.setView(p, Math.max(map.getZoom(), 14), { animate: true });
+  // Compteur de vitesse sur la carte
+  const vb = el.querySelector("#carteVitesse"), v = etat.pos?.kmh;
+  vb.hidden = v == null || !etat.active;
+  if (!vb.hidden) { vb.querySelector("b").textContent = v; vb.classList.toggle("vite", v > 90); vb.title = etat.active.vmax ? `Maximum sur ce trajet : ${etat.active.vmax} km/h` : ""; }
   // Avancement
   if (!r) return;
   if (r.straight) { info.textContent = `Itinéraire routier introuvable : ligne droite ${km(r.m)}.`; return; }
@@ -128,7 +132,7 @@ export async function carteMaj(etat) {
     return;
   }
   const pct = Math.round(100 * g.done / g.total), reste = g.total - g.done;
-  let t = `Parcouru ${km(g.done)} sur ${km(g.total)} (${pct} %) · reste ${km(reste)}`;
+  let t = `Parcouru ${km(g.done)} sur ${km(g.total)} (${pct} %) · reste ${km(reste)}` + (etat.active.gpsM ? ` · compteur GPS ${km(etat.active.gpsM)}` : "") + (etat.active.vmax ? ` · max ${etat.active.vmax} km/h` : "");
   if (etat.expectedMs && etat.active.stamps?.[0]) {
     const elapsed = Date.now() - etat.active.stamps[0], frac = g.done / g.total;
     // Rythme actuel et durée prévue, moyennés une fois un sixième du trajet fait

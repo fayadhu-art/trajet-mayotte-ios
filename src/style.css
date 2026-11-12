@@ -186,3 +186,8 @@ dialog.welcome .btn.ghost{margin-top:14px}
 .leaflet-container{font:inherit}
 /* Bande opaque sous la barre d'état de l'iPhone : le contenu ne passe plus sous l'heure et la batterie */
 body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:1000;pointer-events:none}
+.carte-wrap{position:relative}
+.vitesse{position:absolute;right:10px;top:10px;z-index:500;width:74px;height:74px;border-radius:50%;background:rgba(255,255,255,.92);border:3px solid var(--lagon);box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#13242B;pointer-events:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.vitesse b{font:700 1.7rem/1 var(--f-display);font-variant-numeric:tabular-nums}
+.vitesse span{font-size:.7rem;font-weight:700;color:#5B6F73}
+.vitesse.vite{border-color:var(--rouge)}
